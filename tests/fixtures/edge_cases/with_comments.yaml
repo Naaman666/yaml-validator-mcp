@@ -1,0 +1,9 @@
+---
+# Top-level comment
+name: test  # inline comment
+# Section comment
+database:
+  # Database host
+  host: localhost
+  port: 5432  # default port
+# End of file comment

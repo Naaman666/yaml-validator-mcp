@@ -1,0 +1,2 @@
+---
+description: "This is a very long line that exceeds the default yamllint line length limit of 80 characters and should trigger a warning or error depending on configuration used"

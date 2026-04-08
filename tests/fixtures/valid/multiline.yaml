@@ -1,0 +1,10 @@
+---
+literal_block: |
+  This is a literal block scalar.
+  Line breaks are preserved.
+  Indentation is stripped.
+
+folded_block: >
+  This is a folded block scalar.
+  Line breaks become spaces.
+  Only double newlines create paragraphs.

@@ -1,0 +1,9 @@
+---
+server:
+  host: localhost
+  port: 8080
+  database:
+    name: mydb
+    credentials:
+      user: admin
+      password: secret

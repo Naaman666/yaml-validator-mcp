@@ -1,0 +1,4 @@
+---
+valid_key: value
+invalid key: : broken
+  nested: [misaligned
