@@ -165,6 +165,7 @@ jobs:
         if: hashFiles('requirements*.txt', 'pyproject.toml') != ''
         run: |
           python -m venv /tmp/audit-venv
+          /tmp/audit-venv/bin/pip install --quiet --upgrade pip
           /tmp/audit-venv/bin/pip install --quiet pip-audit
           /tmp/audit-venv/bin/pip install --quiet -e ".[dev]"
           /tmp/audit-venv/bin/pip-audit --skip-editable
