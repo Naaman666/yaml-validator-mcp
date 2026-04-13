@@ -176,6 +176,42 @@ Run yaml_fix on .github/workflows/deploy.yml, show me the diff,
 and if it looks good, write the fixed content back to the file.
 ```
 
+**Batch auto-fix (fix all workflow files, show diffs, save only if no regressions):**
+
+```
+For every YAML file under .github/workflows/, run yaml_fix. For each file
+show me a unified diff and the post-fix validation result. Only write the
+file back if validation.valid is true and the diff is non-empty.
+```
+
+**Dry-run fix (preview only, never save):**
+
+```
+Run yaml_fix on docker-compose.yml but do NOT write anything. Just show me
+the fixed_content and the validation block.
+```
+
+**Fix then re-validate with a stricter lint level:**
+
+```
+Run yaml_fix on .github/workflows/ci.yml, then run yaml_validate on the
+fixed content with lint_level="default". Report remaining warnings so I
+know what the fixer could not auto-correct (e.g. truthy keys).
+```
+
+**Combined validate-and-fix workflow (the everyday prompt):**
+
+```
+For every YAML file under .github/ (recursively):
+  1. Run yaml_validate with default lint level.
+  2. If valid is false OR there are warnings, run yaml_fix on it.
+  3. Show me a table: file | before:errors | before:warnings |
+     after:errors | after:warnings | action (none/fixed/still-broken).
+  4. For files where yaml_fix reduced errors or warnings to 0, write the
+     fixed_content back. For anything still broken, list the remaining
+     problems with line numbers — do NOT overwrite those files.
+```
+
 **Summary table across many files:**
 
 ```

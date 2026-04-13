@@ -177,6 +177,43 @@ Futtasd a yaml_fix-et a .github/workflows/deploy.yml-en, mutasd a diff-et,
 és ha OK, írd vissza a javított tartalmat a fájlba.
 ```
 
+**Kötegelt auto-fix (összes workflow fájl javítása, diff-ek, csak regresszió-mentesen ment):**
+
+```
+Futtasd a yaml_fix-et a .github/workflows/ alatti összes YAML fájlra.
+Mindegyikhez mutasd a unified diff-et és a fix utáni validation eredményt.
+Csak akkor írd vissza a fájlt, ha validation.valid == true ÉS a diff nem üres.
+```
+
+**Dry-run fix (csak előnézet, nem mentés):**
+
+```
+Futtasd a yaml_fix-et a docker-compose.yml-re, de SEMMIT ne írj vissza.
+Csak mutasd a fixed_content-et és a validation blokkot.
+```
+
+**Fix majd újra-validáció szigorúbb lint szinttel:**
+
+```
+Futtasd a yaml_fix-et a .github/workflows/ci.yml-re, majd a javított
+tartalmon futtasd a yaml_validate-et lint_level="default" szinten.
+Sorold fel a maradék warning-okat, hogy lássam, mit nem tud az auto-fix
+javítani (pl. truthy kulcsokat).
+```
+
+**Kombinált ellenőrző-és-javító workflow (a mindennapi prompt):**
+
+```
+A .github/ alatti minden YAML fájlra (rekurzívan):
+  1. Futtasd a yaml_validate-et default lint szinten.
+  2. Ha valid == false VAGY van warning, futtasd rajta a yaml_fix-et.
+  3. Adj táblázatot: fájl | előtte:hibák | előtte:warningok |
+     utána:hibák | utána:warningok | akció (nincs/javítva/még-hibás).
+  4. Ahol a yaml_fix a hibákat VAGY warningokat 0-ra csökkentette,
+     írd vissza a fixed_content-et. Ami még hibás, annál sorold fel
+     a maradék problémákat sorszámmal — azokat NE írd felül.
+```
+
 **Összegző táblázat több fájlhoz:**
 
 ```
