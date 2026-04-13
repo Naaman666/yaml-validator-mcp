@@ -226,8 +226,10 @@ A .github/ alatti minden YAML fájlra (rekurzívan):
           `# <owner>/<repo> vX.Y.Z`, a `uses:` sor legyen tiszta.
           Ez egyszerre javítja a yamllint `comments` (1 space)
           warningokat és a `line-length` hibákat amik a SHA + inline
-          komment kombóból jönnek; a renovate.json customManagers
-          regex-e ezt a formátumot is felismeri.
+          komment kombóból jönnek. Lásd lent: "Renovate
+          kompatibilitás" — a hoist-olt formához custom regex
+          manager kell, hogy a Renovate továbbra is együtt tudja
+          bumpolni a SHA-t és a verziót.
 
         - Minden 80+ karakteres sornál egy `run: |` shell blokkban:
           bontsd szét backslash continuation-nel (`\`) természetes
@@ -294,6 +296,53 @@ Jelezd a szerkezeti hibákat.
 - **Tömeges műveletnél** kérd meg a modellt, hogy **először listázza a
   fájlokat**, majd fusson rajtuk végig és adjon táblázatot — így
   átláthatóbb az interakció.
+
+### Renovate kompatibilitás
+
+A kombinált prompt kézi cleanup-ja **felmozgatja a `# vX.Y.Z`
+verziókommentet** a `uses:` sor mögül az előző sorba:
+
+```yaml
+# Előtte — Renovate alap action-pin updater-e érti:
+- uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+# Utána — Renovate alap updater-e már NEM látja a verziókommentet:
+# actions/checkout v4.2.2
+- uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+```
+
+Ha Renovate-et használsz, adj hozzá egy `customManagers` blokkot a
+`renovate.json`-odhoz, hogy a hoist-olt formát is felismerje és
+együtt tudja bumpolni a SHA-t és a verziót:
+
+```json
+{
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": ["^\\.github/workflows/[^/]+\\.ya?ml$"],
+      "matchStrings": [
+        "#\\s+(?<depName>[\\w.-]+/[\\w.-]+)\\s+(?<currentValue>v[\\d.]+[\\w.+-]*)\\s*\\n\\s*(?:-\\s+)?uses:\\s+(?<packageName>[\\w.-]+/[\\w.-]+)@(?<currentDigest>[a-f0-9]{40})"
+      ],
+      "datasourceTemplate": "github-tags",
+      "versioningTemplate": "semver-coerced"
+    }
+  ]
+}
+```
+
+A pattern multiline: a komment sort és a következő `uses:` sort
+egy match-ként fogja össze.
+
+**Dependabot-felhasználóknak** hasonló opt-in kell: a Dependabot csak
+az inline `# vX.Y.Z`-t ismeri, és jelenleg **nincs** ekvivalens
+custom-regex hook-ja. Két opció: (a) a hoist-transzformot kihagyod
+azokban a repókban, ahol Dependabot van, és helyette `.yamllint`
+configgal lazítasz, vagy (b) elfogadod a kézi SHA-bumpolást a
+hoist-olt entry-knél.
+
+Ha jövőbeli cleanup-transzformok más automatizáló eszközöket törnek
+el, ide kerüljenek az eszköz-specifikus fixek.
 
 ## Eszközök
 

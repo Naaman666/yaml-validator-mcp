@@ -223,8 +223,10 @@ For every YAML file under .github/ (recursively):
           line: hoist the version comment to the line ABOVE as
           `# <owner>/<repo> vX.Y.Z`, leave the `uses:` line bare.
           This fixes both yamllint `comments` (1-space) warnings and
-          `line-length` errors caused by SHA + inline comment combos,
-          and the renovate.json customManagers regex still picks it up.
+          `line-length` errors caused by SHA + inline comment combos.
+          See "Renovate compatibility" below — the hoisted format
+          requires a custom regex manager so Renovate can still bump
+          the SHA + version together.
 
         - For any line longer than 80 chars inside a `run: |` shell
           block: break it with backslash continuation (`\`) before a
@@ -288,6 +290,53 @@ on .github/workflows/ci.yml with that schema. Report any structural errors.
 - For bulk operations, ask the model to **list files first**, then run
   the tool in a loop and present a table — this keeps the interaction
   tidy.
+
+### Renovate compatibility
+
+The combined prompt's manual cleanup hoists `# vX.Y.Z` version
+comments from the `uses:` line to the line above:
+
+```yaml
+# Before — Renovate's default action-pin updater understands this:
+- uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+# After the cleanup — Renovate's default updater no longer sees
+# the version comment:
+# actions/checkout v4.2.2
+- uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+```
+
+If you use Renovate, add a `customManagers` entry to your
+`renovate.json` so it can still bump SHA + version together for the
+hoisted format:
+
+```json
+{
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": ["^\\.github/workflows/[^/]+\\.ya?ml$"],
+      "matchStrings": [
+        "#\\s+(?<depName>[\\w.-]+/[\\w.-]+)\\s+(?<currentValue>v[\\d.]+[\\w.+-]*)\\s*\\n\\s*(?:-\\s+)?uses:\\s+(?<packageName>[\\w.-]+/[\\w.-]+)@(?<currentDigest>[a-f0-9]{40})"
+      ],
+      "datasourceTemplate": "github-tags",
+      "versioningTemplate": "semver-coerced"
+    }
+  ]
+}
+```
+
+The pattern is multiline: it captures the comment line and the
+following `uses:` line as one match.
+
+**Dependabot users** need a similar opt-in: Dependabot recognises
+inline `# vX.Y.Z` only, and currently has no equivalent
+custom-regex hook. Two workarounds: (a) skip the hoisting transform
+for repos using Dependabot and rely on a `.yamllint` config relax
+instead, or (b) accept manual SHA bumps for hoisted entries.
+
+If future cleanup transforms break other automation tooling, this
+section is the place to document the per-tool fix.
 
 ## Tools
 
