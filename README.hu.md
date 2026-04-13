@@ -71,7 +71,31 @@ pip install .
 
 ### Claude Code
 
-Add hozzá a Claude Code MCP konfigurációhoz:
+Két módon tudod regisztrálni az MCP szervert.
+
+**A lehetőség — CLI (ajánlott):** egyetlen parancs bármelyik shell-ben. Ez automatikusan a megfelelő config fájlt szerkeszti.
+
+```bash
+# Felhasználói szint (a gép minden projektjében elérhető)
+claude mcp add yaml-validator -s user -- uvx --from git+https://github.com/Naaman666/yaml-validator-mcp.git yaml-validator-mcp
+
+# vagy projekt szint (az aktuális repo .mcp.json-jába kerül — megosztható a csapattal)
+claude mcp add yaml-validator -s project -- uvx --from git+https://github.com/Naaman666/yaml-validator-mcp.git yaml-validator-mcp
+```
+
+Ellenőrzés:
+```bash
+claude mcp list
+```
+
+**B lehetőség — kézi szerkesztés:**
+
+- **Felhasználói szintű config** (minden projektre érvényes): `~/.claude.json`
+  - Windows: `C:\Users\<FelhasználóNév>\.claude.json` (nálad pl. `C:\Users\Naaman\.claude.json`)
+  - macOS / Linux: `~/.claude.json`
+- **Projekt szintű config** (repo-nként, git-be commit-olható): `.mcp.json` a projekt gyökerében.
+
+Nyisd meg a fájlt (ha nem létezik, hozd létre) és add hozzá az alábbi `mcpServers` blokkot. Ha a fájlban már van más tartalom, **csak** az `mcpServers` kulcsot egyesítsd a meglévő JSON objektummal — ne írd felül az egész fájlt.
 
 ```json
 {
@@ -88,7 +112,19 @@ Add hozzá a Claude Code MCP konfigurációhoz:
 }
 ```
 
+Mentés után indítsd újra a Claude Code-ot.
+
 ### Antigravity
+
+Nyisd meg a config-ot a UI-ból: **Agent panel → további opciók menü → MCP Servers → Manage MCP Servers → View raw config**.
+
+Vagy szerkeszd közvetlenül a fájlt:
+
+- **Windows:** `%USERPROFILE%\.gemini\antigravity\mcp_config.json`
+  (nálad pl. `C:\Users\Naaman\.gemini\antigravity\mcp_config.json`)
+- **macOS / Linux:** `~/.gemini/antigravity/mcp_config.json`
+
+Add hozzá (vagy egyesítsd) az `mcpServers` blokkot:
 
 ```json
 {
@@ -105,6 +141,8 @@ Add hozzá a Claude Code MCP konfigurációhoz:
   }
 }
 ```
+
+Mentés után indítsd újra az Antigravity-t.
 
 ## Eszközök
 
