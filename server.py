@@ -9,7 +9,8 @@ import jsonschema
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel, ConfigDict, Field
-from ruamel.yaml import YAML, YAMLError
+from ruamel.yaml import YAML
+from ruamel.yaml.error import YAMLError
 from yamllint import linter as yamllint_linter
 from yamllint.config import YamlLintConfig
 
@@ -62,7 +63,7 @@ def _parse_yaml(content: str) -> tuple[Any, str | None]:
     Multi-document YAML is supported: returns a list of documents.
     """
     yaml = YAML()
-    yaml.preserve_quotes = True  # type: ignore[assignment]
+    yaml.preserve_quotes = True
     try:
         # Try multi-document load first to handle `---` separated docs
         docs = list(yaml.load_all(content))
@@ -148,10 +149,10 @@ def _fix_yaml(content: str) -> tuple[str, str | None]:
     If fix_error is not None, fixed_content is the original content.
     """
     yaml = YAML()
-    yaml.preserve_quotes = True  # type: ignore[assignment]
+    yaml.preserve_quotes = True
     yaml.default_flow_style = False
     yaml.indent(mapping=2, sequence=4, offset=2)
-    yaml.width = 4096  # type: ignore[assignment]
+    yaml.width = 4096
 
     try:
         data = yaml.load(content)
@@ -159,7 +160,7 @@ def _fix_yaml(content: str) -> tuple[str, str | None]:
         return content, str(exc)
 
     # Ensure document-start marker
-    yaml.explicit_start = True  # type: ignore[assignment]
+    yaml.explicit_start = True
 
     buf = io.StringIO()
     try:
