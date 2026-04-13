@@ -1,0 +1,129 @@
+name: Scheduled Checks
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Hétfőnként 06:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  license-and-outdated:
+    name: License Compliance & Outdated Dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # ── Python ─────────────────────────────────────────────────────────────
+      - name: 🐍 Setup Python
+        if: hashFiles('requirements*.txt', 'pyproject.toml') != ''
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: 📋 Python — License compliance (pip-licenses)
+        if: hashFiles('requirements*.txt', 'pyproject.toml') != ''
+        run: |
+          pip install pip-licenses
+          pip-licenses --fail-on="GPL;AGPL;LGPL" --format=markdown > license-report-python.md || {
+            echo "❌ Incompatible license detected."
+            cat license-report-python.md
+            exit 1
+          }
+
+      - name: 📦 Python — Outdated dependencies
+        if: hashFiles('requirements*.txt', 'pyproject.toml') != ''
+        run: |
+          pip install pip-review
+          pip-review --local > outdated-python.txt || true
+          if [ -s outdated-python.txt ]; then
+            echo "⚠️ Outdated Python packages:"
+            cat outdated-python.txt
+          else
+            echo "✅ All Python packages up to date."
+          fi
+
+      # ── Kotlin / Gradle ────────────────────────────────────────────────────
+      - name: ☕ Setup JDK 21
+        if: hashFiles('build.gradle', 'build.gradle.kts') != ''
+        uses: actions/setup-java@3a4f6e1af504e7e5a4b3e9b4a234e4e5e4f4e1af # v4.7.0
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: gradle
+
+      - name: 📋 Kotlin — License compliance (gradle-license-report)
+        if: hashFiles('build.gradle', 'build.gradle.kts') != ''
+        run: |
+          chmod +x gradlew
+          HAS_LICENSE=$(./gradlew tasks --all --no-daemon -q 2>/dev/null | grep -c "generateLicenseReport" || true)
+          if [ "$HAS_LICENSE" -gt 0 ]; then
+            ./gradlew generateLicenseReport --no-daemon
+            echo "✅ License report generated."
+          else
+            echo "⚠️ gradle-license-report plugin not found. Skipping."
+          fi
+
+      - name: 📦 Kotlin — Outdated dependencies (dependencyUpdates)
+        if: hashFiles('build.gradle', 'build.gradle.kts') != ''
+        run: |
+          HAS_UPDATES=$(./gradlew tasks --all --no-daemon -q 2>/dev/null | grep -c "dependencyUpdates" || true)
+          if [ "$HAS_UPDATES" -gt 0 ]; then
+            ./gradlew dependencyUpdates --no-daemon -Drevision=release > outdated-kotlin.txt || true
+            echo "⚠️ Outdated Kotlin dependencies:"
+            cat outdated-kotlin.txt
+          else
+            echo "⚠️ ben-manes/versions plugin not found. Skipping."
+          fi
+
+      # ── JavaScript ─────────────────────────────────────────────────────────
+      - name: 🟨 Setup Node.js
+        if: hashFiles('package.json') != ''
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: '22'
+
+      - name: 📋 JS — License compliance (license-checker)
+        if: hashFiles('package.json') != ''
+        run: |
+          npm install -g license-checker
+          npm install
+          license-checker --failOn "GPL;AGPL;LGPL" --csv > license-report-js.csv || {
+            echo "❌ Incompatible JS license detected."
+            exit 1
+          }
+
+      - name: 📦 JS — Outdated dependencies
+        if: hashFiles('package.json') != ''
+        run: |
+          npm outdated > outdated-js.txt || true
+          if [ -s outdated-js.txt ]; then
+            echo "⚠️ Outdated JS packages:"
+            cat outdated-js.txt
+          else
+            echo "✅ All JS packages up to date."
+          fi
+
+      # ── Upload reports ─────────────────────────────────────────────────────
+      - name: 📤 Upload reports
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.1
+        with:
+          name: scheduled-reports-${{ github.run_number }}
+          path: |
+            license-report-python.md
+            license-report-js.csv
+            outdated-python.txt
+            outdated-kotlin.txt
+            outdated-js.txt
+          retention-days: 30
+          if-no-files-found: ignore

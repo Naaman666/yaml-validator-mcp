@@ -1,0 +1,304 @@
+name: Python CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - '**/*.py'
+      - 'pyproject.toml'
+      - 'poetry.lock'
+      - 'requirements*.txt'
+      - 'setup.cfg'
+      - 'setup.py'
+      - '.flake8'
+      - '.pylintrc'
+      - 'mypy.ini'
+      - '.github/workflows/python-ci.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - '**/*.py'
+      - 'pyproject.toml'
+      - 'poetry.lock'
+      - 'requirements*.txt'
+      - 'setup.cfg'
+      - 'setup.py'
+      - '.flake8'
+      - '.pylintrc'
+      - 'mypy.ini'
+      - '.github/workflows/python-ci.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONDONTWRITEBYTECODE: 1
+  PYTHONUNBUFFERED: 1
+  PIP_DISABLE_PIP_VERSION_CHECK: 1
+  PIP_NO_COLOR: 1
+
+jobs:
+  lint-and-test:
+    name: Lint, Test & Build Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: 🐍 Setup Python 3.12
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      # ── Poetry path (comment out if using plain pip) ──────────────────────
+      - name: 📦 Install Poetry
+        run: |
+          pip install "poetry>=1.8,<2.0"
+          poetry config virtualenvs.in-project true
+
+      - name: 💾 Cache Poetry virtualenv
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c6158d # v4.2.2
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-py3.12-${{ hashFiles('poetry.lock') }}
+          restore-keys: venv-${{ runner.os }}-py3.12-
+
+      - name: 🔧 Install dependencies (Poetry)
+        run: poetry install --no-interaction --no-root
+
+      # ── Plain pip path (uncomment if not using Poetry) ────────────────────
+      # - name: Create venv & install
+      #   run: |
+      #     python -m venv .venv
+      #     source .venv/bin/activate
+      #     pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: 🧹 Lint (ruff / flake8 / pylint) + mypy
+        run: |
+          HAS_RUFF=$(poetry run python -c "import ruff" 2>/dev/null && echo 1 || echo 0)
+          HAS_FLAKE8=$(poetry run python -c "import flake8" 2>/dev/null && echo 1 || echo 0)
+          HAS_PYLINT=$(poetry run python -c "import pylint" 2>/dev/null && echo 1 || echo 0)
+          HAS_MYPY=$(poetry run python -c "import mypy" 2>/dev/null && echo 1 || echo 0)
+
+          if [ "$HAS_RUFF" -eq 0 ] && [ "$HAS_FLAKE8" -eq 0 ] && [ "$HAS_PYLINT" -eq 0 ]; then
+            echo "⚠️ No linter detected (ruff / flake8 / pylint). Skipping."
+          fi
+
+          if [ "$HAS_RUFF" -eq 1 ]; then
+            echo "▶ ruff"
+            poetry run ruff check . --output-format=github
+            poetry run ruff format --check .
+          fi
+
+          if [ "$HAS_FLAKE8" -eq 1 ]; then
+            echo "▶ flake8"
+            poetry run flake8 .
+          fi
+
+          if [ "$HAS_PYLINT" -eq 1 ]; then
+            PY_FILES=$(git ls-files '*.py')
+            if [ -n "$PY_FILES" ]; then
+              echo "▶ pylint"
+              poetry run pylint $PY_FILES
+            fi
+          fi
+
+          if [ "$HAS_MYPY" -eq 1 ]; then
+            echo "▶ mypy"
+            poetry run mypy . --ignore-missing-imports
+          else
+            echo "⚠️ mypy not detected. Skipping type check."
+          fi
+
+      - name: 🧪 pytest + coverage
+        run: |
+          poetry run pytest \
+            --tb=short \
+            --cov=. \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            -q
+
+      - name: 📊 Upload coverage
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.1
+        with:
+          name: coverage-${{ github.run_number }}
+          path: coverage.xml
+          retention-days: 7
+
+      - name: 🏗️ Build check (sdist + wheel)
+        run: poetry build
+
+      - name: 📤 Upload dist
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.1
+        with:
+          name: dist-${{ github.run_number }}
+          path: dist/
+          retention-days: 3
+
+  # ════════════════════════════════════════════════════════
+  # JOB 2 — Kódformázás cleanup + PR nyitás
+  # ════════════════════════════════════════════════════════
+  code-cleanup:
+    name: Code Cleanup & Format PR
+    needs: lint-and-test
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: 🐍 Setup Python 3.12
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: 📦 Install Poetry
+        run: |
+          pip install "poetry>=1.8,<2.0"
+          poetry config virtualenvs.in-project true
+
+      - name: 💾 Cache Poetry virtualenv
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c6158d # v4.2.2
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-py3.12-${{ hashFiles('poetry.lock') }}
+          restore-keys: venv-${{ runner.os }}-py3.12-
+
+      - name: 🔧 Install dependencies
+        run: poetry install --no-interaction --no-root
+
+      - name: 🧹 Auto-fix: ruff format + import sort + unused removal
+        run: |
+          HAS_RUFF=$(poetry run python -c "import ruff" 2>/dev/null && echo 1 || echo 0)
+          if [ "$HAS_RUFF" -eq 1 ]; then
+            poetry run ruff check . --fix --select I,F401,E,W
+            poetry run ruff format .
+          fi
+
+      - name: 🔍 Check for changes
+        id: changes
+        run: |
+          git diff --quiet && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: 🌿 Create cleanup branch & PR
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BRANCH="chore/code-cleanup-${{ github.run_number }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add -A
+          git commit -m "chore: auto code cleanup - format, imports, unused vars"
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "chore: auto code cleanup #${{ github.run_number }}" \
+            --body "Automatikus kódformázás és cleanup:
+            - Sorhossz és behúzások (ruff format)
+            - Import rendezés és csoportosítás (ruff --select I)
+            - Fel nem használt importok eltávolítása (ruff --select F401)
+            - Szintaktikai tisztítás (ruff --select E,W)
+
+            Funkcionális változtatás: **nulla**." \
+            --base ${{ github.ref_name }} \
+            --head "$BRANCH"
+
+  # ════════════════════════════════════════════════════════
+  # SECURITY JOB — Vulnerability scan, secret check, coverage
+  # ════════════════════════════════════════════════════════
+  security-checks:
+    name: Security & Coverage Checks
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      # ── 1. Secret / credential leak detection ─────────────────────────────
+      - name: 🔑 Secret scan (Gitleaks)
+        uses: gitleaks/gitleaks-action@44c470a21e9c5a7cdd6fd4e0f2be0e75b5a76acb # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 2. Vulnerability scan (auto-detects project type) ─────────────────
+
+      - name: 🐍 Python vulnerability scan (pip-audit)
+        if: hashFiles('requirements*.txt', 'pyproject.toml') != ''
+        run: |
+          pip install pip-audit
+          if [ -f "requirements.txt" ]; then
+            pip-audit -r requirements.txt
+          elif [ -f "pyproject.toml" ]; then
+            pip-audit
+          fi
+
+      - name: 🟨 JS vulnerability scan (npm audit)
+        if: hashFiles('package.json') != ''
+        run: npm audit --audit-level=high
+
+      # ── 3. Coverage threshold (skip if no test files found) ───────────────
+      - name: 🐍 Coverage threshold — Python
+        if: hashFiles('**/*.py') != ''
+        run: |
+          TEST_FILES=$(find . -name "test_*.py" -o -name "*_test.py" | grep -v node_modules | head -1)
+          if [ -z "$TEST_FILES" ]; then
+            echo "⚠️ No Python test files found. Skipping coverage check."
+            exit 0
+          fi
+          pip install pytest pytest-cov
+          pytest --cov=. --cov-fail-under=80 --cov-report=term-missing -q || {
+            echo "❌ Coverage below 80%. CI failed."
+            exit 1
+          }
+
+      - name: ☕ Coverage threshold — Kotlin
+        if: hashFiles('**/*.kt') != ''
+        run: |
+          if [ -f "gradlew" ]; then
+            chmod +x gradlew
+            TEST_TASK=$(./gradlew tasks --all --no-daemon -q 2>/dev/null | grep -c "^test" || true)
+            if [ "$TEST_TASK" -eq 0 ]; then
+              echo "⚠️ No Kotlin test task found. Skipping coverage check."
+              exit 0
+            fi
+            ./gradlew koverVerify --no-daemon || {
+              echo "❌ Coverage below 80%. CI failed."
+              exit 1
+            }
+          fi
+
+      - name: 🟨 Coverage threshold — JS
+        if: hashFiles('package.json') != ''
+        run: |
+          if [ -f "package.json" ]; then
+            HAS_TEST=$(cat package.json | grep -c 'test' || true)
+            if [ "$HAS_TEST" -eq 0 ]; then
+              echo "⚠️ No JS test script found. Skipping coverage check."
+              exit 0
+            fi
+            npm run test -- --coverage --coverageThreshold='{"global":{"lines":80}}' || {
+              echo "❌ Coverage below 80%. CI failed."
+              exit 1
+            }
+          fi
