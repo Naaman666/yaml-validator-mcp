@@ -164,10 +164,7 @@ jobs:
       - name: "🐍 Python vulnerability scan (pip-audit)"
         if: hashFiles('requirements*.txt', 'pyproject.toml') != ''
         run: |
-          pip install pip-audit
-          pip install -e ".[dev]"
-          if [ -f "requirements.txt" ]; then
-            pip-audit --local -r requirements.txt
-          elif [ -f "pyproject.toml" ]; then
-            pip-audit --local
-          fi
+          python -m venv /tmp/audit-venv
+          /tmp/audit-venv/bin/pip install --quiet pip-audit
+          /tmp/audit-venv/bin/pip install --quiet -e ".[dev]"
+          /tmp/audit-venv/bin/pip-audit --skip-editable
