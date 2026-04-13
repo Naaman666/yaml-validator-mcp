@@ -1,6 +1,7 @@
+---
 name: Python CI
 
-on:
+"on":
   push:
     branches: [main, develop]
     paths:
@@ -46,10 +47,12 @@ jobs:
 
     steps:
       - name: 📥 Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        # actions/checkout v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: 🐍 Setup Python 3.12
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        # actions/setup-python v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -61,7 +64,8 @@ jobs:
           poetry config virtualenvs.in-project true
 
       - name: 💾 Cache Poetry virtualenv
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c6158d # v4.2.2
+        # actions/cache v4.2.2
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c6158d
         with:
           path: .venv
           key: venv-${{ runner.os }}-py3.12-${{ hashFiles('poetry.lock') }}
@@ -79,12 +83,18 @@ jobs:
 
       - name: 🧹 Lint (ruff / flake8 / pylint) + mypy
         run: |
-          HAS_RUFF=$(poetry run python -c "import ruff" 2>/dev/null && echo 1 || echo 0)
-          HAS_FLAKE8=$(poetry run python -c "import flake8" 2>/dev/null && echo 1 || echo 0)
-          HAS_PYLINT=$(poetry run python -c "import pylint" 2>/dev/null && echo 1 || echo 0)
-          HAS_MYPY=$(poetry run python -c "import mypy" 2>/dev/null && echo 1 || echo 0)
+          HAS_RUFF=$(poetry run python -c "import ruff" 2>/dev/null \
+            && echo 1 || echo 0)
+          HAS_FLAKE8=$(poetry run python -c "import flake8" 2>/dev/null \
+            && echo 1 || echo 0)
+          HAS_PYLINT=$(poetry run python -c "import pylint" 2>/dev/null \
+            && echo 1 || echo 0)
+          HAS_MYPY=$(poetry run python -c "import mypy" 2>/dev/null \
+            && echo 1 || echo 0)
 
-          if [ "$HAS_RUFF" -eq 0 ] && [ "$HAS_FLAKE8" -eq 0 ] && [ "$HAS_PYLINT" -eq 0 ]; then
+          if [ "$HAS_RUFF" -eq 0 ] \
+             && [ "$HAS_FLAKE8" -eq 0 ] \
+             && [ "$HAS_PYLINT" -eq 0 ]; then
             echo "⚠️ No linter detected (ruff / flake8 / pylint). Skipping."
           fi
 
@@ -125,7 +135,8 @@ jobs:
 
       - name: 📊 Upload coverage
         if: always()
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.1
+        # actions/upload-artifact v4.6.1
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: coverage-${{ github.run_number }}
           path: coverage.xml
@@ -135,7 +146,8 @@ jobs:
         run: poetry build
 
       - name: 📤 Upload dist
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.1
+        # actions/upload-artifact v4.6.1
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: dist-${{ github.run_number }}
           path: dist/
@@ -156,12 +168,14 @@ jobs:
 
     steps:
       - name: 📥 Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        # actions/checkout v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
 
       - name: 🐍 Setup Python 3.12
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        # actions/setup-python v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -172,7 +186,8 @@ jobs:
           poetry config virtualenvs.in-project true
 
       - name: 💾 Cache Poetry virtualenv
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c6158d # v4.2.2
+        # actions/cache v4.2.2
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c6158d
         with:
           path: .venv
           key: venv-${{ runner.os }}-py3.12-${{ hashFiles('poetry.lock') }}
@@ -183,7 +198,8 @@ jobs:
 
       - name: "🧹 Auto-fix: ruff format + import sort + unused removal"
         run: |
-          HAS_RUFF=$(poetry run python -c "import ruff" 2>/dev/null && echo 1 || echo 0)
+          HAS_RUFF=$(poetry run python -c "import ruff" 2>/dev/null \
+            && echo 1 || echo 0)
           if [ "$HAS_RUFF" -eq 1 ]; then
             poetry run ruff check . --fix --select I,F401,E,W
             poetry run ruff format .
@@ -192,7 +208,9 @@ jobs:
       - name: 🔍 Check for changes
         id: changes
         run: |
-          git diff --quiet && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+          git diff --quiet \
+            && echo "changed=false" >> $GITHUB_OUTPUT \
+            || echo "changed=true" >> $GITHUB_OUTPUT
 
       - name: 🌿 Create cleanup branch & PR
         if: steps.changes.outputs.changed == 'true'
@@ -204,7 +222,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
           git add -A
-          git commit -m "chore: auto code cleanup - format, imports, unused vars"
+          git commit -m \
+            "chore: auto code cleanup - format, imports, unused vars"
           git push origin "$BRANCH"
           gh pr create \
             --title "chore: auto code cleanup #${{ github.run_number }}" \
@@ -231,13 +250,15 @@ jobs:
 
     steps:
       - name: 📥 Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        # actions/checkout v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
 
       # ── 1. Secret / credential leak detection ─────────────────────────────
       - name: 🔑 Secret scan (Gitleaks)
-        uses: gitleaks/gitleaks-action@44c470a21e9c5a7cdd6fd4e0f2be0e75b5a76acb # v2.3.9
+        # gitleaks/gitleaks-action v2.3.9
+        uses: gitleaks/gitleaks-action@44c470a21e9c5a7cdd6fd4e0f2be0e75b5a76acb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -261,7 +282,8 @@ jobs:
       - name: 🐍 Coverage threshold — Python
         if: hashFiles('**/*.py') != ''
         run: |
-          TEST_FILES=$(find . -name "test_*.py" -o -name "*_test.py" | grep -v node_modules | head -1)
+          TEST_FILES=$(find . -name "test_*.py" -o -name "*_test.py" \
+            | grep -v node_modules | head -1)
           if [ -z "$TEST_FILES" ]; then
             echo "⚠️ No Python test files found. Skipping coverage check."
             exit 0
@@ -277,7 +299,8 @@ jobs:
         run: |
           if [ -f "gradlew" ]; then
             chmod +x gradlew
-            TEST_TASK=$(./gradlew tasks --all --no-daemon -q 2>/dev/null | grep -c '^test\b' || true)
+            TEST_TASK=$(./gradlew tasks --all --no-daemon -q 2>/dev/null \
+              | grep -c '^test\b' || true)
             if [ "$TEST_TASK" -eq 0 ]; then
               echo "⚠️ No Kotlin test task found. Skipping coverage check."
               exit 0
@@ -297,7 +320,8 @@ jobs:
               echo "⚠️ No JS test script found. Skipping coverage check."
               exit 0
             fi
-            npm run test -- --coverage --coverageThreshold='{"global":{"lines":80}}' || {
+            npm run test -- --coverage \
+              --coverageThreshold='{"global":{"lines":80}}' || {
               echo "❌ Coverage below 80%. CI failed."
               exit 1
             }
