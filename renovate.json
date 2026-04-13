@@ -11,5 +11,17 @@
   "github-actions": {
     "enabled": true,
     "pinDigests": true
-  }
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Recognise hoisted version comments above pinned GitHub Action SHAs (format: `# <owner>/<repo> vX.Y.Z` followed by a `uses: ... @<40-char-sha>` line). yaml-validator-mcp's manual cleanup hoists the inline `# vX.Y.Z` comment to the line above; this manager keeps Renovate able to bump both SHA and version comment together.",
+      "fileMatch": ["^\\.github/workflows/[^/]+\\.ya?ml$"],
+      "matchStrings": [
+        "#\\s+(?<depName>[\\w.-]+/[\\w.-]+)\\s+(?<currentValue>v[\\d.]+[\\w.+-]*)\\s*\\n\\s*(?:-\\s+)?uses:\\s+(?<packageName>[\\w.-]+/[\\w.-]+)@(?<currentDigest>[a-f0-9]{40})"
+      ],
+      "datasourceTemplate": "github-tags",
+      "versioningTemplate": "semver-coerced"
+    }
+  ]
 }

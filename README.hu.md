@@ -205,13 +205,58 @@ javítani (pl. truthy kulcsokat).
 
 ```
 A .github/ alatti minden YAML fájlra (rekurzívan):
-  1. Futtasd a yaml_validate-et default lint szinten.
-  2. Ha valid == false VAGY van warning, futtasd rajta a yaml_fix-et.
-  3. Adj táblázatot: fájl | előtte:hibák | előtte:warningok |
-     utána:hibák | utána:warningok | akció (nincs/javítva/még-hibás).
-  4. Ahol a yaml_fix a hibákat VAGY warningokat 0-ra csökkentette,
-     írd vissza a fixed_content-et. Ami még hibás, annál sorold fel
-     a maradék problémákat sorszámmal — azokat NE írd felül.
+
+  1. Futtasd a yaml_validate-et default lint szinten. Jegyezd fel:
+     előtte:hibák, előtte:warningok.
+
+  2. Ha valid == false VAGY van bármelyik warning:
+
+     a) Futtasd rajta a yaml_fix-et (automatikusan kezeli a `---`
+        document markert, indentációt, sor végi whitespace-t).
+
+     b) Aztán alkalmazd ezeket a GitHub-Actions-konvenciónak megfelelő
+        kézi transzformokat (Edit-tel, NE hívd újra a yaml_fix-et):
+
+        - Ha bare `on:` kulcs van a 0. oszlopban, idézd: `"on":`
+          (különben YAML 1.1 szerint boolean `true`-ként parse-olódik
+          — yamllint `truthy` warning).
+
+        - Minden `uses: <owner>/<repo>@<40-char-sha> # vX.Y.Z`
+          sornál: mozgasd a verziókommentet AZ ELŐZŐ SORRA mint
+          `# <owner>/<repo> vX.Y.Z`, a `uses:` sor legyen tiszta.
+          Ez egyszerre javítja a yamllint `comments` (1 space)
+          warningokat és a `line-length` hibákat amik a SHA + inline
+          komment kombóból jönnek; a renovate.json customManagers
+          regex-e ezt a formátumot is felismeri.
+
+        - Minden 80+ karakteres sornál egy `run: |` shell blokkban:
+          bontsd szét backslash continuation-nel (`\`) természetes
+          határ előtt (`&&`, `||`, `|`, `>`). A folytatás sort
+          indeld +2 space-szel. Szemantikai változás nincs.
+
+        - Minden megmaradt inline `# komment`-nél, ahol csak 1 space
+          van a `#` előtt (kivéve `uses:` sorokon — azokat már
+          hoist-oltad): adj egy második space-t — de CSAK ha ettől
+          nem lesz 80+ karakter. Ha igen, mozgasd ezt is felfelé.
+
+  3. Futtasd újra a yaml_validate-et a módosított tartalmon.
+
+  4. Adj táblázatot:
+       fájl | előtte:hibák | előtte:warningok |
+              utána:hibák  | utána:warningok  | akció
+
+     Akció lehet: `nincs` (eleve tiszta volt),
+     `javítva` (hibák ÉS warningok 0-ra, fájl visszaírva),
+     `részben-javítva` (csökkent, de maradt — fájl visszaírva),
+     `még-hibás` (nem javult vagy syntax error maradt — fájl
+     ÉRINTETLEN).
+
+  5. `javítva` és `részben-javítva` esetén írd vissza a módosított
+     tartalmat a fájlba.
+
+  6. `még-hibás` és `részben-javítva` esetén sorold fel a maradék
+     hibákat és warningokat sorszámmal és szabálynévvel, hogy el
+     tudjam dönteni, kézzel javítom-e.
 ```
 
 **Összegző táblázat több fájlhoz:**

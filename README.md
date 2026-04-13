@@ -203,13 +203,57 @@ know what the fixer could not auto-correct (e.g. truthy keys).
 
 ```
 For every YAML file under .github/ (recursively):
-  1. Run yaml_validate with default lint level.
-  2. If valid is false OR there are warnings, run yaml_fix on it.
-  3. Show me a table: file | before:errors | before:warnings |
-     after:errors | after:warnings | action (none/fixed/still-broken).
-  4. For files where yaml_fix reduced errors or warnings to 0, write the
-     fixed_content back. For anything still broken, list the remaining
-     problems with line numbers — do NOT overwrite those files.
+
+  1. Run yaml_validate with default lint level. Record before:errors,
+     before:warnings.
+
+  2. If valid is false OR there are any warnings:
+
+     a) Run yaml_fix on the file (this auto-handles `---` document
+        marker, indentation normalisation, trailing whitespace).
+
+     b) Then apply these GitHub-Actions-friendly manual transforms
+        (use Edit, do NOT call yaml_fix again):
+
+        - If a bare `on:` key sits at column 0, quote it as `"on":`
+          to silence the YAML 1.1 truthy ambiguity (`on` parses as
+          boolean true otherwise).
+
+        - For every `uses: <owner>/<repo>@<40-char-sha> # vX.Y.Z`
+          line: hoist the version comment to the line ABOVE as
+          `# <owner>/<repo> vX.Y.Z`, leave the `uses:` line bare.
+          This fixes both yamllint `comments` (1-space) warnings and
+          `line-length` errors caused by SHA + inline comment combos,
+          and the renovate.json customManagers regex still picks it up.
+
+        - For any line longer than 80 chars inside a `run: |` shell
+          block: break it with backslash continuation (`\`) before a
+          natural boundary (`&&`, `||`, `|`, `>`). Indent the
+          continuation by +2 spaces. No semantic change.
+
+        - For any remaining inline `# comment` with only 1 space
+          before `#` (not `uses:` lines, those were already hoisted):
+          add a second space — but only if it does NOT push the line
+          over 80 chars. If it would, hoist that comment too.
+
+  3. Run yaml_validate again on the modified content.
+
+  4. Show me a table:
+       file | before:errors | before:warnings |
+              after:errors  | after:warnings  | action
+
+     Action is one of: `none` (already clean),
+     `fixed` (errors AND warnings now 0, file written back),
+     `partially-fixed` (improved but issues remain, file written
+     back), `still-broken` (no improvement or syntax error remains,
+     file NOT touched).
+
+  5. For `fixed` and `partially-fixed`, write the modified content
+     back to disk.
+
+  6. For `still-broken` and `partially-fixed`, list the remaining
+     errors and warnings with line numbers and rule names so I can
+     decide whether to act on them manually.
 ```
 
 **Summary table across many files:**
