@@ -41,7 +41,7 @@ dev = [
 yaml-validator-mcp = "server:main"
 
 [project.urls]
-Repository = "https://github.com/naaman666/yaml-validator-mcp"
+Repository = "https://github.com/Naaman666/yaml-validator-mcp"
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]

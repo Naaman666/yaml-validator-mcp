@@ -11,14 +11,58 @@ MCP server for deterministic YAML validation and auto-fixing. AI models see YAML
 
 ## Installation
 
-# With uvx (recommended)
-```bash
-uvx yaml-validator-mcp
+> **Note:** This package is not yet published to PyPI. Install it directly from GitHub using one of the methods below.
+
+### Prerequisite: install `uv` (provides the `uvx` command)
+
+`uvx` ships with [`uv`](https://docs.astral.sh/uv/). If you see
+`The term 'uvx' is not recognized...`, install `uv` first:
+
+**Windows (PowerShell):**
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+or
+```powershell
+winget install --id=astral-sh.uv -e
 ```
 
-# With pip
+**macOS / Linux:**
 ```bash
-pip install yaml-validator-mcp
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+**Any platform (via pip):**
+```bash
+pip install uv
+```
+
+After installing, restart your terminal so `uvx` is on `PATH`.
+
+### Run with uvx (recommended, from GitHub)
+
+```bash
+uvx --from git+https://github.com/Naaman666/yaml-validator-mcp.git yaml-validator-mcp
+```
+
+### Install with pip (from GitHub)
+
+```bash
+pip install git+https://github.com/Naaman666/yaml-validator-mcp.git
+```
+
+Then run:
+
+```bash
+yaml-validator-mcp
+```
+
+### Install from a local clone
+
+```bash
+git clone https://github.com/Naaman666/yaml-validator-mcp.git
+cd yaml-validator-mcp
+pip install .
 ```
 
 ## Configuration
@@ -32,7 +76,11 @@ Add to your Claude Code MCP config:
   "mcpServers": {
     "yaml-validator": {
       "command": "uvx",
-      "args": ["yaml-validator-mcp"]
+      "args": [
+        "--from",
+        "git+https://github.com/Naaman666/yaml-validator-mcp.git",
+        "yaml-validator-mcp"
+      ]
     }
   }
 }
@@ -45,7 +93,11 @@ Add to your Claude Code MCP config:
   "mcpServers": {
     "yaml-validator": {
       "command": "uvx",
-      "args": ["yaml-validator-mcp"],
+      "args": [
+        "--from",
+        "git+https://github.com/Naaman666/yaml-validator-mcp.git",
+        "yaml-validator-mcp"
+      ],
       "transport": "stdio"
     }
   }
