@@ -165,8 +165,9 @@ jobs:
         if: hashFiles('requirements*.txt', 'pyproject.toml') != ''
         run: |
           pip install pip-audit
+          pip install -e ".[dev]"
           if [ -f "requirements.txt" ]; then
-            pip-audit -r requirements.txt
+            pip-audit --local -r requirements.txt
           elif [ -f "pyproject.toml" ]; then
-            pip-audit
+            pip-audit --local
           fi
