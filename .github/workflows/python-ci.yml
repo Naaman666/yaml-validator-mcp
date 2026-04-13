@@ -70,8 +70,10 @@ jobs:
       - name: "🧹 Lint (ruff / flake8 / pylint) + mypy"
         run: |
           HAS_RUFF=$(python -c "import ruff" 2>/dev/null && echo 1 || echo 0)
-          HAS_FLAKE8=$(python -c "import flake8" 2>/dev/null && echo 1 || echo 0)
-          HAS_PYLINT=$(python -c "import pylint" 2>/dev/null && echo 1 || echo 0)
+          HAS_FLAKE8=$(python -c "import flake8" 2>/dev/null \
+            && echo 1 || echo 0)
+          HAS_PYLINT=$(python -c "import pylint" 2>/dev/null \
+            && echo 1 || echo 0)
           HAS_MYPY=$(python -c "import mypy" 2>/dev/null && echo 1 || echo 0)
 
           if [ "$HAS_RUFF" -eq 0 ] \
