@@ -181,7 +181,7 @@ jobs:
       - name: 🔧 Install dependencies
         run: poetry install --no-interaction --no-root
 
-      - name: 🧹 Auto-fix: ruff format + import sort + unused removal
+      - name: "🧹 Auto-fix: ruff format + import sort + unused removal"
         run: |
           HAS_RUFF=$(poetry run python -c "import ruff" 2>/dev/null && echo 1 || echo 0)
           if [ "$HAS_RUFF" -eq 1 ]; then
@@ -277,7 +277,7 @@ jobs:
         run: |
           if [ -f "gradlew" ]; then
             chmod +x gradlew
-            TEST_TASK=$(./gradlew tasks --all --no-daemon -q 2>/dev/null | grep -c "^test" || true)
+            TEST_TASK=$(./gradlew tasks --all --no-daemon -q 2>/dev/null | grep -c '^test\b' || true)
             if [ "$TEST_TASK" -eq 0 ]; then
               echo "⚠️ No Kotlin test task found. Skipping coverage check."
               exit 0
