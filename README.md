@@ -14,13 +14,11 @@ MCP server for deterministic YAML validation and auto-fixing. AI models see YAML
 # With uvx (recommended)
 ```bash
 uvx yaml-validator-mcp
-
 ```
 
 # With pip
 ```bash
 pip install yaml-validator-mcp
-
 ```
 
 ## Configuration
