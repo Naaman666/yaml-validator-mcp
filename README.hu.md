@@ -144,6 +144,75 @@ Add hozzá (vagy egyesítsd) az `mcpServers` blokkot:
 
 Mentés után indítsd újra az Antigravity-t.
 
+## Használat
+
+Miután regisztráltad az MCP szervert és újraindítottad a klienst, az LLM
+**automatikusan** látja a `yaml_validate` és `yaml_fix` eszközöket — nem
+kell manuálisan meghívnod őket. Egyszerűen természetes nyelven kérdezd
+meg, és a modell magától felhasználja az eszközöket, amikor kell.
+
+### Tipikus munkafolyamat
+
+1. Nyisd meg a Claude Code-ot (vagy Antigravity-t) abban a repóban,
+   amelyiknek a YAML fájljait ellenőrizni szeretnéd.
+2. Írd le egyszerű szöveggel, hogy mit szeretnél.
+3. Az első eszközhíváskor a kliens engedélyt kér az MCP tool
+   futtatására — engedélyezd.
+4. A modell beolvassa a fájlokat, átadja a tartalmat az MCP eszköznek,
+   és a strukturált eredményt érthető formában jelenti vissza neked.
+
+### Példa promptok
+
+**Minden workflow fájl ellenőrzése egy repóban:**
+
+```
+Ellenőrizd a .github/workflows/ alatti minden YAML fájlt a yaml-validator
+MCP-vel. Fájlonként sorold fel a hibákat sorszámokkal.
+```
+
+**Egy fájl automatikus javítása és visszamentése:**
+
+```
+Futtasd a yaml_fix-et a .github/workflows/deploy.yml-en, mutasd a diff-et,
+és ha OK, írd vissza a javított tartalmat a fájlba.
+```
+
+**Összegző táblázat több fájlhoz:**
+
+```
+Listázd a .github/ alatti összes YAML fájlt, futtasd mindegyiken a
+yaml_validate-et (default lint szint), és adj táblázatot:
+fájl | valid | hibaszám | warning-ok száma.
+```
+
+**Relaxed lint szint (kevesebb stílus-panasz):**
+
+```
+Ellenőrizd a docker-compose.yml-t yaml-validator-ral "relaxed" lint
+szinten.
+```
+
+**JSON Schema validáció (pl. GitHub Actions schema):**
+
+```
+Töltsd le a hivatalos GitHub Actions workflow JSON Schema-t, és futtasd
+a yaml_validate-et a .github/workflows/ci.yml-re ezzel a schema-val.
+Jelezd a szerkezeti hibákat.
+```
+
+### Tippek
+
+- **Nem kell minden mondatban megnevezned az eszközt** — elég ennyi:
+  *"nézd át a workflow YAML-jaimat hibákért"* —, a modell magától
+  rájön, hogy a `yaml_validate`-et kell használnia.
+- **Megnevezheted explicit módon** (`"használd a yaml-validator MCP-t"`),
+  ha több hasonló eszköz is be van regisztrálva — ez egyértelművé teszi.
+- Az első hívásnál engedély-promptot kapsz. Ha sokat használod,
+  előre is engedélyezheted a szervert a Claude Code beállításokban.
+- **Tömeges műveletnél** kérd meg a modellt, hogy **először listázza a
+  fájlokat**, majd fusson rajtuk végig és adjon táblázatot — így
+  átláthatóbb az interakció.
+
 ## Eszközök
 
 ### `yaml_validate`

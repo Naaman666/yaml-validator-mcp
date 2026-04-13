@@ -143,6 +143,72 @@ Add (or merge) the `mcpServers` block:
 
 Restart Antigravity after editing.
 
+## Usage
+
+Once the MCP server is registered and the client is restarted, the LLM
+automatically sees the `yaml_validate` and `yaml_fix` tools — you don't
+need to call them manually. Just ask in natural language and the model
+will invoke the tools when relevant.
+
+### Typical workflow
+
+1. Open Claude Code (or Antigravity) in the repo whose YAML files you
+   want to check.
+2. Ask in plain text what you want to do.
+3. On first tool call the client asks permission to run the MCP tool —
+   approve it.
+4. The model reads the file(s), passes the content to the MCP tool, and
+   reports the structured result back to you.
+
+### Example prompts
+
+**Validate all workflow files in a repo:**
+
+```
+Check every YAML file under .github/workflows/ using the yaml-validator MCP.
+List errors per file with line numbers.
+```
+
+**Auto-fix a single file and save it back:**
+
+```
+Run yaml_fix on .github/workflows/deploy.yml, show me the diff,
+and if it looks good, write the fixed content back to the file.
+```
+
+**Summary table across many files:**
+
+```
+List every YAML file under .github/, run yaml_validate (default lint level)
+on each, and give me a table: file | valid | errors | warnings.
+```
+
+**Relaxed lint level (fewer style complaints):**
+
+```
+Validate docker-compose.yml with yaml-validator using lint_level="relaxed".
+```
+
+**JSON Schema validation (e.g. GitHub Actions schema):**
+
+```
+Fetch the official GitHub Actions workflow JSON Schema and run yaml_validate
+on .github/workflows/ci.yml with that schema. Report any structural errors.
+```
+
+### Tips
+
+- You don't have to name the tool in every sentence — *"check my workflow
+  YAMLs for errors"* is enough; the model figures out that it needs
+  `yaml_validate`.
+- You **can** name it explicitly (`"use the yaml-validator MCP"`) when
+  multiple similar tools are registered — this removes ambiguity.
+- The first call shows a permission prompt. You can pre-approve the
+  server in Claude Code settings if you use it often.
+- For bulk operations, ask the model to **list files first**, then run
+  the tool in a loop and present a table — this keeps the interaction
+  tidy.
+
 ## Tools
 
 ### `yaml_validate`
