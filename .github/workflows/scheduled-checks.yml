@@ -60,7 +60,7 @@ jobs:
       - name: ☕ Setup JDK 21
         if: hashFiles('build.gradle', 'build.gradle.kts') != ''
         # actions/setup-java v4.7.0
-        uses: actions/setup-java@3a4f6e1af504e7e5a4b3e9b4a234e4e5e4f4e1af
+        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12
         with:
           java-version: '21'
           distribution: temurin
@@ -127,7 +127,7 @@ jobs:
       - name: 📤 Upload reports
         if: always()
         # actions/upload-artifact v4.6.1
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
         with:
           name: scheduled-reports-${{ github.run_number }}
           path: |
