@@ -13,57 +13,10 @@ from typing import Any
 import jsonschema
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
-from pydantic import BaseModel, ConfigDict, Field
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
 from yamllint import linter as yamllint_linter
 from yamllint.config import YamlLintConfig
-
-
-# ---------------------------------------------------------------------------
-# Pydantic input models
-# ---------------------------------------------------------------------------
-
-class ValidateInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    content: str = Field(..., description="Raw YAML string to validate")
-    lint_level: str = Field(
-        default="default",
-        description=(
-            "Lint strictness: 'default', 'relaxed', or a raw yamllint "
-            "config string (e.g. 'extends: default\\nrules:\\n  line-length: disable')"
-        ),
-    )
-    schema_: dict[str, Any] | None = Field(
-        default=None,
-        alias="schema",
-        description="Optional JSON Schema dict for structure validation",
-    )
-
-
-class GhaValidateInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    content: str = Field(
-        ...,
-        description="Raw GitHub Actions workflow YAML string",
-    )
-
-
-class FixInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    content: str = Field(..., description="Raw YAML string to fix")
-    lint_level: str = Field(
-        default="default",
-        description="Post-fix lint level (same options as yaml_validate)",
-    )
-    schema_: dict[str, Any] | None = Field(
-        default=None,
-        alias="schema",
-        description="Optional JSON Schema dict for post-fix structure validation",
-    )
 
 
 # ---------------------------------------------------------------------------
