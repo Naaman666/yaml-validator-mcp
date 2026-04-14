@@ -8,8 +8,19 @@ MCP szerver determinisztikus YAML validációhoz és automatikus javításhoz. A
 
 - **3 rétegű validáció** (`yaml_validate`): szintaxis parse (ruamel.yaml, YAML 1.2), lint (yamllint), és opcionális JSON Schema validáció
 - **Automatikus javítás** (`yaml_fix`): indentáció normalizálása, `---` marker hozzáadása, sor végi whitespace eltávolítása, kommentek megőrzése
+- **GitHub Actions lintelés** (`gha_validate`, opcionális): [`actionlint`](https://github.com/rhysd/actionlint)-et wrap-eli workflow-specifikus ellenőrzésekhez (expression-ök, matrix hivatkozások, shellcheck a `run:` blokkokban) — olyan hibákat fog, amiket a YAML-szintű validáció nem lát
 - **Kommentek megőrzése**: a ruamel.yaml round-trip minden kommentet érintetlenül hagy
 - **Strukturált kimenet**: JSON `valid`, `syntax_ok`, `errors[]`, `warnings[]` mezőkkel
+
+### Amit a YAML eszközök **nem** ellenőriznek
+
+A `yaml_validate` és `yaml_fix` determinisztikus, offline, csak-YAML eszközök. Szándékosan **nem**:
+
+- ellenőrzik, hogy egy érték létezik-e a külvilágban — pl. GitHub Action SHA (`uses: actions/checkout@<40-hex>`), `python-version`, `runs-on` runner címke, Docker image tag vagy URL. Egy 40 karakteres hex string szintaktikailag érvényes YAML scalar, így a parser elfogadja, függetlenül attól, hogy a commit ténylegesen létezik-e a GitHub-on.
+- nem csinálnak semmilyen hálózati I/O-t (nincs GitHub API, nincs DNS, nincs registry lookup). Ez teszi az eszközöket gyorssá, reprodukálhatóvá és offline / air-gapped CI-ben is használhatóvá.
+- nem értik a workflow/alkalmazás szemantikáját — pl. "ez a `needs:` hivatkozás valódi job-ra mutat?", "ez a `${{ expression }}` jól formázott?", "ebben a shell parancsban jók az idézőjelek?".
+
+GitHub Actions workflow fájlokhoz használd a kiegészítő **`gha_validate`** tool-t (lásd lent), ami `actionlint`-et wrap-el és ezeket az Actions-specifikus problémákat elfogja. Annak ellenőrzésére, hogy egy pinnelt action SHA vagy tag ténylegesen létezik-e, használj **Renovate**-et vagy **Dependabot**-ot — azok a GitHub API-val beszélnek és erre a feladatra készültek.
 
 ## Telepítés
 
@@ -396,10 +407,66 @@ YAML automatikus javítása kommentek megőrzésével. A javítás után automat
 
 Ha a bemenet nem parse-olható, a `fix_error` tartalmazza a hibaüzenetet, a `fixed_content` pedig az eredeti bemenetet adja vissza változatlanul.
 
+### `gha_validate`
+
+GitHub Actions workflow linter ([`actionlint`](https://github.com/rhysd/actionlint)-et wrap-el). Olyan Actions-specifikus hibákat fog el, amiket a `yaml_validate` nem lát — érvénytelen `${{ expression }}` szintaxis, definiálatlan `matrix.*` / `needs.*` hivatkozások, shellcheck findings a `run:` blokkokban, ismeretlen step kulcsok, rosszul formázott step ID-k, `workflow_call` input típusok, stb.
+
+Mint a többi eszköz, ez is **determinisztikus és offline** — nem hívja a GitHub API-t, így nem tudja megmondani, hogy egy pinnelt action SHA ténylegesen létezik-e a GitHub-on. Arra a Renovate/Dependabot való.
+
+| Paraméter | Típus | Kötelező | Leírás |
+|-----------|-------|----------|--------|
+| `content` | str | Igen | Nyers workflow YAML (egy `.github/workflows/` alatti fájl tartalma) |
+
+**Szükséges** az `actionlint` bináris a `PATH`-on. Telepítés az alábbiak egyikével:
+
+```bash
+pip install actionlint-py        # bundleli a binárist, cross-platform
+# vagy
+brew install actionlint           # macOS
+# vagy
+go install github.com/rhysd/actionlint/cmd/actionlint@latest
+```
+
+Vagy telepítsd ezt a csomagot a `gha` extrával, ami behúzza az `actionlint-py`-t:
+
+```bash
+pip install "yaml-validator-mcp[gha] @ git+https://github.com/Naaman666/yaml-validator-mcp.git"
+# vagy
+uvx --from "git+https://github.com/Naaman666/yaml-validator-mcp.git#egg=yaml-validator-mcp[gha]" yaml-validator-mcp
+```
+
+**Példa kimenet (tiszta workflow):**
+
+```json
+{
+  "valid": true,
+  "syntax_ok": true,
+  "available": true,
+  "errors": [],
+  "tool_error": null
+}
+```
+
+**Példa kimenet (definiálatlan matrix hivatkozás):**
+
+```json
+{
+  "valid": false,
+  "syntax_ok": true,
+  "available": true,
+  "errors": [
+    {"line": 10, "column": 23, "message": "property \"does-not-exist\" is not defined in object type {}", "rule": "expression"}
+  ],
+  "tool_error": null
+}
+```
+
+Ha az `actionlint` nincs telepítve, az `available` `false`, a `tool_error` tartalmazza a telepítési útmutatót, a `valid` pedig `true` marad (a hiányzó linter képesség-hiány, nem lint-hiba — a kliensben az `available`/`tool_error` mezőkre ágazz el).
+
 ## Fejlesztés
 
 ```bash
-# Telepítés fejlesztői függőségekkel
+# Telepítés fejlesztői függőségekkel (magában foglalja az actionlint-py-t a gha_validate tesztekhez)
 pip install -e ".[dev]"
 
 # Tesztek futtatása

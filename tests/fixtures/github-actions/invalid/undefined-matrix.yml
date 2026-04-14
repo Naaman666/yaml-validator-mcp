@@ -1,0 +1,10 @@
+---
+name: Undefined matrix ref
+"on":
+  push:
+
+jobs:
+  bad:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ${{ matrix.does-not-exist }}

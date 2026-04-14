@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 import io
+import json
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
 from typing import Any
 
 import jsonschema
@@ -34,6 +39,15 @@ class ValidateInput(BaseModel):
         default=None,
         alias="schema",
         description="Optional JSON Schema dict for structure validation",
+    )
+
+
+class GhaValidateInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    content: str = Field(
+        ...,
+        description="Raw GitHub Actions workflow YAML string",
     )
 
 
@@ -142,6 +156,81 @@ def _validate_schema(
     return errors
 
 
+def _run_actionlint(content: str) -> dict[str, Any]:
+    """Run actionlint on a GitHub Actions workflow YAML string.
+
+    Returns a dict with keys:
+      available (bool): whether the actionlint binary was found in PATH
+      errors (list): each entry has line, column, message, rule
+      tool_error (str|None): message if actionlint could not be executed
+    """
+    binary = shutil.which("actionlint")
+    if binary is None:
+        return {
+            "available": False,
+            "errors": [],
+            "tool_error": (
+                "actionlint binary not found in PATH. Install one of: "
+                "'pip install actionlint-py' (bundles the binary, cross-platform), "
+                "'go install github.com/rhysd/actionlint/cmd/actionlint@latest', "
+                "'brew install actionlint' (macOS), or download a release from "
+                "https://github.com/rhysd/actionlint/releases."
+            ),
+        }
+
+    # actionlint only recognises files placed under .github/workflows/,
+    # so build that directory structure inside a tempdir.
+    with tempfile.TemporaryDirectory() as tmp:
+        wf_dir = Path(tmp) / ".github" / "workflows"
+        wf_dir.mkdir(parents=True)
+        wf_file = wf_dir / "workflow.yml"
+        wf_file.write_text(content, encoding="utf-8")
+
+        try:
+            proc = subprocess.run(
+                [binary, "-format", "{{json .}}", str(wf_file)],
+                cwd=tmp,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return {
+                "available": True,
+                "errors": [],
+                "tool_error": f"actionlint execution failed: {exc}",
+            }
+
+        raw = proc.stdout.strip() or "[]"
+        try:
+            items = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            return {
+                "available": True,
+                "errors": [],
+                "tool_error": (
+                    f"actionlint returned invalid JSON: {exc}. "
+                    f"Stderr: {proc.stderr.strip()[:500]}"
+                ),
+            }
+
+        errors: list[dict[str, Any]] = []
+        for item in items:
+            errors.append({
+                "line": item.get("line"),
+                "column": item.get("column"),
+                "message": item.get("message", ""),
+                "rule": item.get("kind", "actionlint"),
+            })
+
+        return {
+            "available": True,
+            "errors": errors,
+            "tool_error": None,
+        }
+
+
 def _fix_yaml(content: str) -> tuple[str, str | None]:
     """Fix YAML content using ruamel.yaml round-trip.
 
@@ -187,7 +276,9 @@ mcp = FastMCP(
     instructions=(
         "YAML validation and auto-fix server. Use yaml_validate to check YAML "
         "syntax, lint rules, and schema conformance. Use yaml_fix to auto-format "
-        "YAML with comment preservation."
+        "YAML with comment preservation. Use gha_validate for GitHub Actions "
+        "workflow-specific checks (expressions, matrix refs, shellcheck in run "
+        "blocks) — it requires the `actionlint` binary in PATH."
     ),
 )
 
@@ -309,6 +400,81 @@ def yaml_fix(
         "fix_error": None,
         "validation": validation,
     }
+
+
+@mcp.tool(
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+)
+def gha_validate(content: str) -> dict[str, Any]:
+    """Validate a GitHub Actions workflow YAML using actionlint.
+
+    Complements yaml_validate: catches Actions-specific issues that neither
+    YAML parsing nor yamllint can see — invalid ``${{ expression }}`` syntax,
+    undefined matrix/needs references, shellcheck findings in ``run:`` blocks,
+    unknown step keys, malformed step IDs, workflow_call input typing, etc.
+
+    Deterministic and offline: does NOT perform any network lookup. This
+    means it does NOT verify that an action's SHA or tag actually exists on
+    GitHub — use Renovate or Dependabot for that.
+
+    Args:
+        content: Raw workflow YAML string (contents of a file under
+            ``.github/workflows/``).
+
+    Returns a dict with keys:
+        valid (bool): True if no errors from actionlint (and YAML parses).
+            When ``available`` is False, ``valid`` is True — the missing
+            tool is reported via ``tool_error`` rather than treated as an
+            error, mirroring how ``yaml_validate`` treats a missing schema.
+        syntax_ok (bool): whether YAML itself parsed cleanly.
+        available (bool): whether actionlint was found and executable.
+        errors (list): each entry has line, column, message, rule.
+        tool_error (str|None): actionable message if actionlint could not
+            be invoked (not installed, timed out, bad JSON, etc.).
+    """
+    result: dict[str, Any] = {
+        "valid": True,
+        "syntax_ok": True,
+        "available": True,
+        "errors": [],
+        "tool_error": None,
+    }
+
+    # YAML parse first: gives a cleaner error than actionlint's own parser,
+    # and matches the layered style of yaml_validate.
+    _, syntax_error = _parse_yaml(content)
+    if syntax_error is not None:
+        result["valid"] = False
+        result["syntax_ok"] = False
+        result["errors"].append({
+            "line": None,
+            "column": None,
+            "message": syntax_error,
+            "rule": "syntax",
+        })
+        return result
+
+    al = _run_actionlint(content)
+    result["available"] = al["available"]
+    result["tool_error"] = al["tool_error"]
+
+    if al["tool_error"] is not None:
+        # Linter unavailable or failed to run: we can't make a verdict, but
+        # the YAML itself parsed. Keep valid=True so callers can distinguish
+        # "clean under actionlint" from "linter unavailable"; the client
+        # should branch on `available` / `tool_error`.
+        return result
+
+    result["errors"].extend(al["errors"])
+    if al["errors"]:
+        result["valid"] = False
+
+    return result
 
 
 # ---------------------------------------------------------------------------

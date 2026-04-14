@@ -1,0 +1,12 @@
+---
+name: Unknown step key
+"on":
+  push:
+
+jobs:
+  bad:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Step with unknown key
+        run: echo hi
+        not_a_real_key: oops

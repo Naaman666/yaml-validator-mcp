@@ -8,8 +8,19 @@ MCP server for deterministic YAML validation and auto-fixing. AI models see YAML
 
 - **3-layer validation** (`yaml_validate`): syntax parse (ruamel.yaml, YAML 1.2), lint (yamllint), and optional JSON Schema validation
 - **Auto-fix** (`yaml_fix`): normalize indentation, add `---` marker, remove trailing whitespace, preserve comments
+- **GitHub Actions linting** (`gha_validate`, optional): wraps [`actionlint`](https://github.com/rhysd/actionlint) for workflow-specific checks (expressions, matrix refs, shellcheck in `run:` blocks) — catches issues YAML-level validation can't see
 - **Comment preservation**: ruamel.yaml round-trip keeps all comments intact
 - **Structured output**: JSON with `valid`, `syntax_ok`, `errors[]`, `warnings[]`
+
+### What the YAML tools do **not** check
+
+`yaml_validate` and `yaml_fix` are deterministic, offline, YAML-only. By design they do **not**:
+
+- verify that a value exists in the outside world — e.g. a GitHub Action SHA (`uses: actions/checkout@<40-hex>`), a `python-version`, a `runs-on` runner label, a Docker image tag, or a URL. A 40-character hex string is a syntactically valid YAML scalar, so the parser accepts it whether or not the commit actually exists on GitHub.
+- perform any network I/O (no GitHub API, no DNS, no registry lookups). This keeps the tools fast, reproducible, and usable offline / in air-gapped CI.
+- understand workflow/application semantics — e.g. "does this `needs:` reference point to a real job?", "is this `${{ expression }}` well-formed?", "does this shell command have quoting issues?".
+
+For GitHub Actions workflow files use the complementary **`gha_validate`** tool (see below), which wraps `actionlint` and does catch these Actions-specific problems. For verifying that a pinned action SHA or tag actually exists, use **Renovate** or **Dependabot** — those tools talk to the GitHub API and are designed for that job.
 
 ## Installation
 
@@ -390,10 +401,66 @@ Auto-fix YAML with comment preservation. Post-fix validation runs automatically.
 
 If the input is unparseable, `fix_error` contains the error message and `fixed_content` returns the original input unchanged.
 
+### `gha_validate`
+
+GitHub Actions workflow linter (wraps [`actionlint`](https://github.com/rhysd/actionlint)). Catches Actions-specific issues that `yaml_validate` cannot see — invalid `${{ expression }}` syntax, undefined `matrix.*` / `needs.*` references, shellcheck findings in `run:` blocks, unknown step keys, malformed step IDs, `workflow_call` input typing, etc.
+
+Like the other tools, this is **deterministic and offline** — it does not hit the GitHub API, so it cannot tell you whether a pinned action SHA actually exists on GitHub. Use Renovate/Dependabot for that.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `content` | str | Yes | Raw workflow YAML (content of a file under `.github/workflows/`) |
+
+**Requires** the `actionlint` binary in `PATH`. Install one of:
+
+```bash
+pip install actionlint-py        # bundles the binary, cross-platform
+# or
+brew install actionlint           # macOS
+# or
+go install github.com/rhysd/actionlint/cmd/actionlint@latest
+```
+
+Or install this package with the `gha` extra to pull in `actionlint-py`:
+
+```bash
+pip install "yaml-validator-mcp[gha] @ git+https://github.com/Naaman666/yaml-validator-mcp.git"
+# or
+uvx --from "git+https://github.com/Naaman666/yaml-validator-mcp.git#egg=yaml-validator-mcp[gha]" yaml-validator-mcp
+```
+
+**Example output (clean workflow):**
+
+```json
+{
+  "valid": true,
+  "syntax_ok": true,
+  "available": true,
+  "errors": [],
+  "tool_error": null
+}
+```
+
+**Example output (undefined matrix reference):**
+
+```json
+{
+  "valid": false,
+  "syntax_ok": true,
+  "available": true,
+  "errors": [
+    {"line": 10, "column": 23, "message": "property \"does-not-exist\" is not defined in object type {}", "rule": "expression"}
+  ],
+  "tool_error": null
+}
+```
+
+If `actionlint` is not installed, `available` is `false`, `tool_error` contains install instructions, and `valid` stays `true` (a missing linter is a capability gap, not a lint failure — branch on `available`/`tool_error` in the client).
+
 ## Development
 
 ```bash
-# Install with dev dependencies
+# Install with dev dependencies (includes actionlint-py for gha_validate tests)
 pip install -e ".[dev]"
 
 # Run tests
