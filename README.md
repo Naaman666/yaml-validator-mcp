@@ -1,7 +1,5 @@
 # yaml-validator-mcp
 
-*[Magyar verzió / Hungarian version](README.hu.md)*
-
 MCP server for deterministic YAML validation and auto-fixing. AI models see YAML as plain text — they can't parse or detect structural errors. This server provides parser-based validation and automatic formatting that any MCP-compatible client can call.
 
 ## Features

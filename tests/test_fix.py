@@ -199,7 +199,7 @@ class TestFixEdgeCases:
         content = _read(FIXTURES / "valid" / "unicode.yaml")
         result = yaml_fix(content)
         assert result["fix_error"] is None
-        assert "Helló" in result["fixed_content"]
+        assert "Café" in result["fixed_content"]
         assert "🎉" in result["fixed_content"]
 
     def test_deep_nested(self) -> None:
