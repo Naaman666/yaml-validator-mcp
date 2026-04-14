@@ -10,6 +10,9 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
+    {name = "Claude (Anthropic)", email = "noreply@anthropic.com"},
+]
+maintainers = [
     {name = "Naaman666"},
 ]
 classifiers = [
