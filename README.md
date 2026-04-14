@@ -527,6 +527,58 @@ mypy --strict server.py
 yamllint tests/fixtures/valid/
 ```
 
+## Reliability and scope
+
+These tools are **deterministic parsers and linters**, not probabilistic
+detectors. There is no heuristic, no ML, no LLM reasoning inside. That
+shapes how you should think about reliability:
+
+- **Within the configured scope, the false-negative / false-positive
+  rate is effectively zero.** The underlying engines — ruamel.yaml
+  (YAML 1.2 parser), yamllint (rule-based linter), jsonschema (Draft 7),
+  and actionlint — are mature, widely deployed projects. If you hit a
+  genuine in-scope miss or a spurious match, it is almost always an
+  upstream bug reproducible with a one-line YAML example; report it
+  to the relevant project (yamllint, actionlint, jsonschema), not here.
+
+- **"Pass" is not "correct".** A clean `valid: true` result means
+  *"no rule in the applied ruleset matched anything in this file"*.
+  It does **not** mean "this YAML does what you intend" or "this
+  workflow is safe to run". Application-level correctness (is the
+  `needs:` graph right? does the `if:` condition match your intent?
+  will the shell command do the right thing for your data?) is out
+  of scope — there is no model here that understands your intent.
+
+- **Detection coverage ≠ fix coverage.** `yaml_fix` only automatically
+  corrects a *strict subset* of what `yaml_validate` detects. The
+  combined prompt documents the remaining manual transforms (`on:`
+  quoting, `uses:` hoisting, shell line breaks, comment spacing).
+  A summary of the most common issues:
+
+  | Issue | `yaml_validate` detects? | `yaml_fix` auto-fixes? |
+  |---|:---:|:---:|
+  | Tab indentation | ✅ | ✅ (ruamel round-trip) |
+  | Missing `---` marker | ✅ | ✅ |
+  | Trailing whitespace | ✅ | ✅ |
+  | Wrong indent width | ✅ | ✅ |
+  | `on:` truthy warning | ✅ | ❌ (manual) |
+  | `line-length` > 80 | ✅ | ❌ (manual) |
+  | Inline-comment 1-space | ✅ | ❌ (manual) |
+  | Undefined `${{ matrix.x }}` | ❌ (`gha_validate`) | ❌ |
+  | Shellcheck finding in `run:` | ❌ (`gha_validate`) | ❌ |
+  | Non-existent action SHA | ❌ (Renovate / Dependabot) | ❌ |
+  | Missing required key | only with JSON Schema | ❌ |
+
+- **Out-of-scope gaps are listed upfront** in [*What the YAML tools
+  do **not** check*](#what-the-yaml-tools-do-not-check) at the top of
+  this README. If something important to your workflow is in that
+  list, pair this MCP with the tool named there (`gha_validate`,
+  Renovate, Dependabot, JSON Schema).
+
+**Bottom line:** think of this MCP as a precise ruler, not a smart
+reviewer. It reliably measures the things it was built to measure,
+and honestly reports nothing about the things it wasn't.
+
 ## License
 
 MIT

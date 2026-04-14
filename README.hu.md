@@ -536,6 +536,60 @@ mypy --strict server.py
 yamllint tests/fixtures/valid/
 ```
 
+## Megbízhatóság és hatókör
+
+Ezek az eszközök **determinisztikus parser-ek és linter-ek**, nem
+valószínűségi detektorok. Nincs bennük heurisztika, ML vagy LLM
+gondolkodás. Ez meghatározza, hogyan érdemes a megbízhatóságra
+gondolni:
+
+- **A konfigurált hatókörön belül a false-negative / false-positive
+  ráta gyakorlatilag nulla.** A mögöttes motorok — ruamel.yaml (YAML
+  1.2 parser), yamllint (szabály-alapú linter), jsonschema (Draft 7)
+  és actionlint — érett, széles körben használt projektek. Ha valódi
+  in-scope miss-t vagy téves találatot tapasztalsz, az szinte mindig
+  upstream bug, egy egysoros YAML-lel reprodukálható; azt a releváns
+  projektnek (yamllint, actionlint, jsonschema) jelezd, nem ide.
+
+- **A "pass" nem azonos a "helyes"-sel.** Egy tiszta `valid: true`
+  eredmény azt jelenti: *"egyetlen szabály se matchelt semmire ebben
+  a fájlban az alkalmazott szabályhalmazban"*. **Nem** jelenti azt,
+  hogy "ez a YAML azt csinálja, amit akarsz" vagy "ez a workflow
+  biztonságosan futtatható". Az alkalmazás-szintű korrektség
+  (rendben van-e a `needs:` gráf? az `if:` feltétel megfelel-e a
+  szándékodnak? a shell parancs jót csinál-e az adataiddal?) hatókörön
+  kívül van — nincs itt olyan modell, ami érti a szándékodat.
+
+- **A detekció ≠ javítás.** A `yaml_fix` csak azt tudja automatikusan
+  javítani, amit a `yaml_validate` detektál — és annak is csak egy
+  *szigorú részhalmazát*. A kombinált prompt dokumentálja a maradék
+  kézi transzformokat (`on:` quoting, `uses:` hoist, shell sortörések,
+  komment-spacing). A leggyakoribb problémák összefoglalása:
+
+  | Probléma | `yaml_validate` észleli? | `yaml_fix` javítja? |
+  |---|:---:|:---:|
+  | Tab indentáció | ✅ | ✅ (ruamel round-trip) |
+  | Hiányzó `---` marker | ✅ | ✅ |
+  | Sor végi whitespace | ✅ | ✅ |
+  | Rossz indent szélesség | ✅ | ✅ |
+  | `on:` truthy warning | ✅ | ❌ (kézi) |
+  | `line-length` > 80 | ✅ | ❌ (kézi) |
+  | Inline komment 1 space-szel | ✅ | ❌ (kézi) |
+  | Definiálatlan `${{ matrix.x }}` | ❌ (`gha_validate`) | ❌ |
+  | Shellcheck finding `run:`-ban | ❌ (`gha_validate`) | ❌ |
+  | Nem létező action SHA | ❌ (Renovate / Dependabot) | ❌ |
+  | Hiányzó kötelező kulcs | csak JSON Schema-val | ❌ |
+
+- **A hatókörön kívüli hézagok előre felsorolva** a README tetején:
+  [*Amit a YAML eszközök **nem** ellenőriznek*](#amit-a-yaml-eszközök-nem-ellenőriznek).
+  Ha ott szerepel valami, ami fontos a workflow-dnak, párosítsd ezt
+  az MCP-t a megfelelő eszközzel (`gha_validate`, Renovate,
+  Dependabot, JSON Schema).
+
+**Lényeg:** gondolj erre az MCP-re mint egy pontos vonalzóra, nem
+pedig okos reviewer-ként. Megbízhatóan méri azt, amire tervezték, és
+becsületesen semmit nem mond arról, amit nem.
+
 ## Licenc
 
 MIT
