@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-    {name = "Naaman", email = "naaman@example.com"},
+    {name = "Naaman666"},
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -46,7 +46,9 @@ dev = [
 yaml-validator-mcp = "server:main"
 
 [project.urls]
+Homepage = "https://github.com/Naaman666/yaml-validator-mcp"
 Repository = "https://github.com/Naaman666/yaml-validator-mcp"
+Issues = "https://github.com/Naaman666/yaml-validator-mcp/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
