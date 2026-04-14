@@ -45,3 +45,5 @@ Describe key architectural decisions and important modules here.
 - Always work on the `develop` branch.
 - Never push/commit directly to `main`.
 - Every commit should go to the `develop` branch.
+- Only two branches are used: `develop` (active work) and `main` (stable releases).
+- Do not create feature branches, topic branches, or any other branches.
