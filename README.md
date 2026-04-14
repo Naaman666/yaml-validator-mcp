@@ -123,6 +123,24 @@ Open the file (create it if it does not exist) and add the `mcpServers` block be
 }
 ```
 
+To also enable `gha_validate` (GitHub Actions linter), pull in
+`actionlint-py` in the same uvx invocation:
+
+```json
+{
+  "mcpServers": {
+    "yaml-validator": {
+      "command": "uvx",
+      "args": [
+        "--with", "actionlint-py",
+        "--from", "git+https://github.com/Naaman666/yaml-validator-mcp.git",
+        "yaml-validator-mcp"
+      ]
+    }
+  }
+}
+```
+
 Restart Claude Code after editing.
 
 ### Antigravity
@@ -152,14 +170,18 @@ Add (or merge) the `mcpServers` block:
 }
 ```
 
+For `gha_validate` support, add `"--with", "actionlint-py"` to the
+`args` array (same pattern as the Claude Code example above).
+
 Restart Antigravity after editing.
 
 ## Usage
 
 Once the MCP server is registered and the client is restarted, the LLM
-automatically sees the `yaml_validate` and `yaml_fix` tools — you don't
-need to call them manually. Just ask in natural language and the model
-will invoke the tools when relevant.
+automatically sees the `yaml_validate`, `yaml_fix`, and (if `actionlint`
+is available) `gha_validate` tools — you don't need to call them
+manually. Just ask in natural language and the model will invoke the
+tools when relevant.
 
 ### Typical workflow
 
@@ -210,15 +232,29 @@ fixed content with lint_level="default". Report remaining warnings so I
 know what the fixer could not auto-correct (e.g. truthy keys).
 ```
 
+**GitHub Actions workflow lint (`gha_validate`):**
+
+```
+Run gha_validate on every file under .github/workflows/. Report any
+errors with file, line, column, rule, and message. If actionlint is
+unavailable (available=false), tell me once and stop — don't retry
+per file.
+```
+
 **Combined validate-and-fix workflow (the everyday prompt):**
 
 ```
 For every YAML file under .github/ (recursively):
 
   1. Run yaml_validate with default lint level. Record before:errors,
-     before:warnings.
+     before:warnings. If the file is under .github/workflows/, ALSO
+     run gha_validate and record before:gha_errors. If the first
+     gha_validate call reports available=false, note it once and
+     skip gha checks for remaining files (actionlint is not
+     installed — only yaml-level checks will run).
 
-  2. If valid is false OR there are any warnings:
+  2. If yaml_validate.valid is false, there are any yaml warnings,
+     OR gha_validate reports errors:
 
      a) Run yaml_fix on the file (this auto-handles `---` document
         marker, indentation normalisation, trailing whitespace).
@@ -249,24 +285,41 @@ For every YAML file under .github/ (recursively):
           add a second space — but only if it does NOT push the line
           over 80 chars. If it would, hoist that comment too.
 
-  3. Run yaml_validate again on the modified content.
+     c) NOTE: yaml_fix and the manual transforms CANNOT auto-correct
+        gha_validate errors (undefined `${{ expressions }}`,
+        shellcheck findings in `run:` blocks, unknown step keys,
+        matrix typos). Those require human review — they surface in
+        step 6.
+
+  3. Run yaml_validate again on the modified content. For workflow
+     files, re-run gha_validate too.
 
   4. Show me a table:
-       file | before:errors | before:warnings |
-              after:errors  | after:warnings  | action
+       file | before e/w/g | after e/w/g | action
 
-     Action is one of: `none` (already clean),
-     `fixed` (errors AND warnings now 0, file written back),
-     `partially-fixed` (improved but issues remain, file written
-     back), `still-broken` (no improvement or syntax error remains,
-     file NOT touched).
+     where e = yaml errors, w = yaml warnings, g = gha errors (use
+     `—` for non-workflow files or when actionlint is unavailable).
+
+     Action is one of:
+       - `none`: all counters zero before AND after (already clean)
+       - `fixed`: yaml errors=0, yaml warnings=0, gha errors=0 after
+         — file written back
+       - `partially-fixed`: yaml errors=0 and yaml warnings=0 after,
+         but gha errors remain OR yaml issues only partially
+         improved — file written back (yaml_fix did its job);
+         remaining issues listed in step 6
+       - `still-broken`: yaml syntax error remains, or no yaml-level
+         improvement at all — file NOT touched
 
   5. For `fixed` and `partially-fixed`, write the modified content
      back to disk.
 
   6. For `still-broken` and `partially-fixed`, list the remaining
-     errors and warnings with line numbers and rule names so I can
-     decide whether to act on them manually.
+     issues with line numbers and rule names:
+       - yaml errors and warnings (from yaml_validate)
+       - gha_validate errors (from actionlint) — these always need
+         manual fixing, since yaml_fix cannot alter workflow
+         semantics
 ```
 
 **Summary table across many files:**
@@ -425,8 +478,9 @@ Or install this package with the `gha` extra to pull in `actionlint-py`:
 
 ```bash
 pip install "yaml-validator-mcp[gha] @ git+https://github.com/Naaman666/yaml-validator-mcp.git"
-# or
-uvx --from "git+https://github.com/Naaman666/yaml-validator-mcp.git#egg=yaml-validator-mcp[gha]" yaml-validator-mcp
+# or with uvx — either syntax works:
+uvx --with actionlint-py --from git+https://github.com/Naaman666/yaml-validator-mcp.git yaml-validator-mcp
+uvx --from "yaml-validator-mcp[gha] @ git+https://github.com/Naaman666/yaml-validator-mcp.git" yaml-validator-mcp
 ```
 
 **Example output (clean workflow):**

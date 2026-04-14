@@ -123,6 +123,24 @@ Nyisd meg a fájlt (ha nem létezik, hozd létre) és add hozzá az alábbi `mcp
 }
 ```
 
+A `gha_validate` (GitHub Actions linter) eléréséhez húzd be az
+`actionlint-py`-t is ugyanabba az uvx hívásba:
+
+```json
+{
+  "mcpServers": {
+    "yaml-validator": {
+      "command": "uvx",
+      "args": [
+        "--with", "actionlint-py",
+        "--from", "git+https://github.com/Naaman666/yaml-validator-mcp.git",
+        "yaml-validator-mcp"
+      ]
+    }
+  }
+}
+```
+
 Mentés után indítsd újra a Claude Code-ot.
 
 ### Antigravity
@@ -153,14 +171,19 @@ Add hozzá (vagy egyesítsd) az `mcpServers` blokkot:
 }
 ```
 
+A `gha_validate` támogatáshoz add hozzá az `"--with", "actionlint-py"`
+párt az `args` tömbhöz (ugyanaz a minta, mint fent a Claude Code
+példánál).
+
 Mentés után indítsd újra az Antigravity-t.
 
 ## Használat
 
 Miután regisztráltad az MCP szervert és újraindítottad a klienst, az LLM
-**automatikusan** látja a `yaml_validate` és `yaml_fix` eszközöket — nem
-kell manuálisan meghívnod őket. Egyszerűen természetes nyelven kérdezd
-meg, és a modell magától felhasználja az eszközöket, amikor kell.
+**automatikusan** látja a `yaml_validate`, `yaml_fix` és (ha az
+`actionlint` elérhető) `gha_validate` eszközöket — nem kell manuálisan
+meghívnod őket. Egyszerűen természetes nyelven kérdezd meg, és a modell
+magától felhasználja az eszközöket, amikor kell.
 
 ### Tipikus munkafolyamat
 
@@ -212,15 +235,30 @@ Sorold fel a maradék warning-okat, hogy lássam, mit nem tud az auto-fix
 javítani (pl. truthy kulcsokat).
 ```
 
+**GitHub Actions workflow lint (`gha_validate`):**
+
+```
+Futtasd a gha_validate-et a .github/workflows/ alatti minden fájlra.
+Sorold fel a hibákat fájl, sor, oszlop, rule és üzenet szerint. Ha az
+actionlint nem elérhető (available=false), mondd el egyszer és állj
+meg — ne próbálkozz minden fájlra újra.
+```
+
 **Kombinált ellenőrző-és-javító workflow (a mindennapi prompt):**
 
 ```
 A .github/ alatti minden YAML fájlra (rekurzívan):
 
   1. Futtasd a yaml_validate-et default lint szinten. Jegyezd fel:
-     előtte:hibák, előtte:warningok.
+     előtte:hibák, előtte:warningok. Ha a fájl a .github/workflows/
+     alatt van, FUTTASD a gha_validate-et is, és jegyezd fel:
+     előtte:gha_hibák. Ha az első gha_validate hívás available=false-t
+     ad vissza, jelezd egyszer és a többi fájlnál hagyd ki a gha
+     ellenőrzést (nincs telepítve actionlint — csak YAML-szintű
+     ellenőrzések futnak).
 
-  2. Ha valid == false VAGY van bármelyik warning:
+  2. Ha yaml_validate.valid == false, van bármilyen yaml warning,
+     VAGY a gha_validate hibát jelez:
 
      a) Futtasd rajta a yaml_fix-et (automatikusan kezeli a `---`
         document markert, indentációt, sor végi whitespace-t).
@@ -252,24 +290,42 @@ A .github/ alatti minden YAML fájlra (rekurzívan):
           hoist-oltad): adj egy második space-t — de CSAK ha ettől
           nem lesz 80+ karakter. Ha igen, mozgasd ezt is felfelé.
 
-  3. Futtasd újra a yaml_validate-et a módosított tartalmon.
+     c) FONTOS: a yaml_fix és a kézi transzformok NEM tudják
+        automatikusan javítani a gha_validate hibákat (definiálatlan
+        `${{ expression }}`-ök, shellcheck findings a `run:`
+        blokkokban, ismeretlen step kulcsok, matrix elgépelések).
+        Ezekhez emberi döntés kell — a 6. lépésben listázod őket.
+
+  3. Futtasd újra a yaml_validate-et a módosított tartalmon. Workflow
+     fájloknál a gha_validate-et is futtasd újra.
 
   4. Adj táblázatot:
-       fájl | előtte:hibák | előtte:warningok |
-              utána:hibák  | utána:warningok  | akció
+       fájl | előtte e/w/g | utána e/w/g | akció
 
-     Akció lehet: `nincs` (eleve tiszta volt),
-     `javítva` (hibák ÉS warningok 0-ra, fájl visszaírva),
-     `részben-javítva` (csökkent, de maradt — fájl visszaírva),
-     `még-hibás` (nem javult vagy syntax error maradt — fájl
-     ÉRINTETLEN).
+     ahol e = yaml hibák, w = yaml warningok, g = gha hibák (nem
+     workflow fájloknál, vagy ha az actionlint nem elérhető, használj
+     `—` jelet).
+
+     Akció lehet:
+       - `nincs`: eleve tiszta volt (minden számláló 0 előtte ÉS utána)
+       - `javítva`: yaml hibák=0, yaml warningok=0, gha hibák=0 utána
+         — fájl visszaírva
+       - `részben-javítva`: yaml hibák=0 és yaml warningok=0 utána,
+         de gha hibák maradtak VAGY yaml-szinten csak részben javult
+         — fájl visszaírva (yaml_fix megtette a dolgát); a maradék
+         hibákat a 6. lépésben listázod
+       - `még-hibás`: yaml syntax error maradt, vagy yaml-szinten
+         egyáltalán nem javult — fájl ÉRINTETLEN
 
   5. `javítva` és `részben-javítva` esetén írd vissza a módosított
      tartalmat a fájlba.
 
   6. `még-hibás` és `részben-javítva` esetén sorold fel a maradék
-     hibákat és warningokat sorszámmal és szabálynévvel, hogy el
-     tudjam dönteni, kézzel javítom-e.
+     hibákat sorszámmal és szabálynévvel:
+       - yaml hibák és warningok (yaml_validate-ből)
+       - gha_validate hibák (actionlint-ből) — ezeket mindig kézzel
+         kell javítani, mert a yaml_fix nem tud workflow szemantikát
+         módosítani
 ```
 
 **Összegző táblázat több fájlhoz:**
@@ -431,8 +487,9 @@ Vagy telepítsd ezt a csomagot a `gha` extrával, ami behúzza az `actionlint-py
 
 ```bash
 pip install "yaml-validator-mcp[gha] @ git+https://github.com/Naaman666/yaml-validator-mcp.git"
-# vagy
-uvx --from "git+https://github.com/Naaman666/yaml-validator-mcp.git#egg=yaml-validator-mcp[gha]" yaml-validator-mcp
+# vagy uvx-szel — bármelyik szintaxis működik:
+uvx --with actionlint-py --from git+https://github.com/Naaman666/yaml-validator-mcp.git yaml-validator-mcp
+uvx --from "yaml-validator-mcp[gha] @ git+https://github.com/Naaman666/yaml-validator-mcp.git" yaml-validator-mcp
 ```
 
 **Példa kimenet (tiszta workflow):**
