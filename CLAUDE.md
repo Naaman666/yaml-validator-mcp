@@ -2,27 +2,22 @@
 
 ## Git Workflow
 
-### Branches
-- `main` – stable releases only, updated exclusively via PR from `develop`
-- `develop` – active development, this is the default target branch
-
 ### Rules for Claude
 
 1. **Never push or commit directly to `main`.**
-2. All work must be done on a **feature branch** branched off `develop`.
+2. All work must be done on a **feature branch** branched off `main`.
    - Naming pattern: `claude/<short-description>-<id>` (e.g. `claude/add-schema-validation-XYz1`)
-3. PRs always target **`develop`**, never `main`.
-4. The `develop` → `main` merge is performed manually by the maintainer only.
+3. PRs always target **`main`**.
 
 ### Workflow Steps
 
 ```
-git checkout develop
-git pull origin develop
+git checkout main
+git pull origin main
 git checkout -b claude/<feature-name>-<id>
 # ... work, commits ...
 git push -u origin claude/<feature-name>-<id>
-# open PR targeting develop
+# open PR targeting main
 ```
 
 ## Project
