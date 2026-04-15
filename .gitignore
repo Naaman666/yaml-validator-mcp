@@ -8,3 +8,4 @@ build/
 *.egg
 .coverage
 htmlcov/
+README_HU.md
