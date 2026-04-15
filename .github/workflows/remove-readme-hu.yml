@@ -27,6 +27,16 @@ jobs:
       - name: Sync develop with main
         run: |
           git fetch origin develop
+          # Save README_HU.md from develop before merging (it should stay on develop)
+          git show origin/develop:README_HU.md > /tmp/README_HU.md 2>/dev/null \
+            && README_EXISTS=true || README_EXISTS=false
           git checkout develop
           git merge origin/main --no-edit
+          # Restore README_HU.md on develop if it was there before the merge
+          if [ "$README_EXISTS" = "true" ]; then
+            cp /tmp/README_HU.md README_HU.md
+            git add README_HU.md
+            git diff --cached --quiet \
+              || git commit -m "chore: restore README_HU.md on develop after sync"
+          fi
           git push origin develop
