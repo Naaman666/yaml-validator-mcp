@@ -208,6 +208,18 @@ class TestFixEdgeCases:
         assert result["fix_error"] is None
         assert "deep" in result["fixed_content"]
 
+    def test_multi_document_preserved(self) -> None:
+        """Multi-doc YAML must round-trip all documents, not just the first."""
+        content = _read(FIXTURES / "valid" / "multi_doc.yaml")
+        result = yaml_fix(content)
+        assert result["fix_error"] is None
+        # All three document bodies survive the round-trip.
+        assert "document1" in result["fixed_content"]
+        assert "document2" in result["fixed_content"]
+        assert "document3" in result["fixed_content"]
+        # Each document is preceded by an explicit start marker.
+        assert result["fixed_content"].count("---") == 3
+
 
 # ---------------------------------------------------------------------------
 # Output structure
