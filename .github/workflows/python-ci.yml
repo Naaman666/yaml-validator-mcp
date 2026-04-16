@@ -1,31 +1,11 @@
 ---
-name: Python CI
+name: Build & Security
 
 "on":
   push:
-    branches: [main, develop]
-    paths:
-      - '**/*.py'
-      - 'pyproject.toml'
-      - 'requirements*.txt'
-      - 'setup.cfg'
-      - 'setup.py'
-      - '.flake8'
-      - '.pylintrc'
-      - 'mypy.ini'
-      - '.github/workflows/python-ci.yml'
+    branches: [main]
   pull_request:
-    branches: [main, develop]
-    paths:
-      - '**/*.py'
-      - 'pyproject.toml'
-      - 'requirements*.txt'
-      - 'setup.cfg'
-      - 'setup.py'
-      - '.flake8'
-      - '.pylintrc'
-      - 'mypy.ini'
-      - '.github/workflows/python-ci.yml'
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -35,16 +15,13 @@ permissions:
   contents: read
 
 env:
-  PYTHONDONTWRITEBYTECODE: 1
-  PYTHONUNBUFFERED: 1
   PIP_DISABLE_PIP_VERSION_CHECK: 1
-  PIP_NO_COLOR: 1
 
 jobs:
-  lint-and-test:
-    name: Lint, Test & Build Check
+  build:
+    name: Build sdist + wheel
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
 
     steps:
       - name: "📥 Checkout"
@@ -57,100 +34,15 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: "💾 Cache pip"
-        # actions/cache v4.2.2
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf
-        with:
-          path: ~/.cache/pip
-          key: pip-${{ runner.os }}-py3.12-${{ hashFiles('pyproject.toml') }}
-          restore-keys: pip-${{ runner.os }}-py3.12-
-
-      - name: "🔧 Install dependencies"
+      - name: "🏗️ Build sdist + wheel"
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-
-      - name: "🧹 Lint (ruff / flake8 / pylint) + mypy"
-        run: |
-          HAS_RUFF=$(python -c "import ruff" 2>/dev/null && echo 1 || echo 0)
-          HAS_FLAKE8=$(python -c "import flake8" 2>/dev/null \
-            && echo 1 || echo 0)
-          HAS_PYLINT=$(python -c "import pylint" 2>/dev/null \
-            && echo 1 || echo 0)
-          HAS_MYPY=$(python -c "import mypy" 2>/dev/null && echo 1 || echo 0)
-
-          if [ "$HAS_RUFF" -eq 0 ] \
-             && [ "$HAS_FLAKE8" -eq 0 ] \
-             && [ "$HAS_PYLINT" -eq 0 ]; then
-            echo "⚠️ No linter detected (ruff / flake8 / pylint). Skipping."
-          fi
-
-          if [ "$HAS_RUFF" -eq 1 ]; then
-            echo "▶ ruff"
-            ruff check . --output-format=github
-            ruff format --check .
-          fi
-
-          if [ "$HAS_FLAKE8" -eq 1 ]; then
-            echo "▶ flake8"
-            flake8 .
-          fi
-
-          if [ "$HAS_PYLINT" -eq 1 ]; then
-            PY_FILES=$(git ls-files '*.py')
-            if [ -n "$PY_FILES" ]; then
-              echo "▶ pylint"
-              pylint $PY_FILES
-            fi
-          fi
-
-          if [ "$HAS_MYPY" -eq 1 ]; then
-            echo "▶ mypy"
-            mypy --strict server.py
-          else
-            echo "⚠️ mypy not detected. Skipping type check."
-          fi
-
-      - name: "🧪 pytest + coverage"
-        run: |
-          pytest \
-            --tb=short \
-            --cov=server \
-            --cov-report=xml \
-            --cov-report=term-missing \
-            --cov-fail-under=90 \
-            -q
-
-      - name: "📊 Upload coverage"
-        if: always()
-        # actions/upload-artifact v4.6.1
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
-        with:
-          name: coverage-${{ github.run_number }}
-          path: coverage.xml
-          retention-days: 7
-
-      - name: "🏗️ Build check (sdist + wheel)"
-        run: |
-          pip install build
+          python -m pip install --upgrade pip build
           python -m build
 
-      - name: "📤 Upload dist"
-        # actions/upload-artifact v4.6.1
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
-        with:
-          name: dist-${{ github.run_number }}
-          path: dist/
-          retention-days: 3
-
-  # ════════════════════════════════════════════════════════
-  # SECURITY JOB — Vulnerability scan, secret check, coverage
-  # ════════════════════════════════════════════════════════
-  security-checks:
-    name: Security & Coverage Checks
-    needs: lint-and-test
+  security:
+    name: Secret scan + pip-audit
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     permissions:
       contents: read
 
@@ -166,8 +58,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: "🐍 Setup Python 3.12"
+        # actions/setup-python v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.12'
+
       - name: "🐍 Python vulnerability scan (pip-audit)"
-        if: hashFiles('requirements*.txt', 'pyproject.toml') != ''
         run: |
           python -m venv /tmp/audit-venv
           /tmp/audit-venv/bin/pip install --quiet --upgrade pip

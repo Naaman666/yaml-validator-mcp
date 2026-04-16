@@ -24,17 +24,14 @@ jobs:
         # actions/checkout v4.2.2
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-      # ── Python ─────────────────────────────────────────────────────────────
       - name: 🐍 Setup Python
-        if: hashFiles('requirements*.txt', 'pyproject.toml') != ''
         # actions/setup-python v5.3.0
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
         with:
           python-version: '3.12'
           cache: pip
 
-      - name: 📋 Python — License compliance (pip-licenses)
-        if: hashFiles('requirements*.txt', 'pyproject.toml') != ''
+      - name: 📋 License compliance (pip-licenses)
         run: |
           pip install pip-licenses
           pip-licenses --fail-on="GPL;AGPL;LGPL" --format=markdown \
@@ -44,8 +41,7 @@ jobs:
             exit 1
           }
 
-      - name: 📦 Python — Outdated dependencies
-        if: hashFiles('requirements*.txt', 'pyproject.toml') != ''
+      - name: 📦 Outdated dependencies
         run: |
           pip install pip-review
           pip-review --local > outdated-python.txt || true
@@ -56,74 +52,6 @@ jobs:
             echo "✅ All Python packages up to date."
           fi
 
-      # ── Kotlin / Gradle ────────────────────────────────────────────────────
-      - name: ☕ Setup JDK 21
-        if: hashFiles('build.gradle', 'build.gradle.kts') != ''
-        # actions/setup-java v4.7.0
-        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12
-        with:
-          java-version: '21'
-          distribution: temurin
-          cache: gradle
-
-      - name: 📋 Kotlin — License compliance (gradle-license-report)
-        if: hashFiles('build.gradle', 'build.gradle.kts') != ''
-        run: |
-          chmod +x gradlew
-          HAS_LICENSE=$(./gradlew tasks --all --no-daemon -q 2>/dev/null \
-            | grep -c "generateLicenseReport" || true)
-          if [ "$HAS_LICENSE" -gt 0 ]; then
-            ./gradlew generateLicenseReport --no-daemon
-            echo "✅ License report generated."
-          else
-            echo "⚠️ gradle-license-report plugin not found. Skipping."
-          fi
-
-      - name: 📦 Kotlin — Outdated dependencies (dependencyUpdates)
-        if: hashFiles('build.gradle', 'build.gradle.kts') != ''
-        run: |
-          HAS_UPDATES=$(./gradlew tasks --all --no-daemon -q 2>/dev/null \
-            | grep -c "dependencyUpdates" || true)
-          if [ "$HAS_UPDATES" -gt 0 ]; then
-            ./gradlew dependencyUpdates --no-daemon -Drevision=release \
-              > outdated-kotlin.txt || true
-            echo "⚠️ Outdated Kotlin dependencies:"
-            cat outdated-kotlin.txt
-          else
-            echo "⚠️ ben-manes/versions plugin not found. Skipping."
-          fi
-
-      # ── JavaScript ─────────────────────────────────────────────────────────
-      - name: 🟨 Setup Node.js
-        if: hashFiles('package.json') != ''
-        # actions/setup-node v4.1.0
-        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af
-        with:
-          node-version: '22'
-
-      - name: 📋 JS — License compliance (license-checker)
-        if: hashFiles('package.json') != ''
-        run: |
-          npm install -g license-checker
-          npm install
-          license-checker --failOn "GPL;AGPL;LGPL" --csv \
-            > license-report-js.csv || {
-            echo "❌ Incompatible JS license detected."
-            exit 1
-          }
-
-      - name: 📦 JS — Outdated dependencies
-        if: hashFiles('package.json') != ''
-        run: |
-          npm outdated > outdated-js.txt || true
-          if [ -s outdated-js.txt ]; then
-            echo "⚠️ Outdated JS packages:"
-            cat outdated-js.txt
-          else
-            echo "✅ All JS packages up to date."
-          fi
-
-      # ── Upload reports ─────────────────────────────────────────────────────
       - name: 📤 Upload reports
         if: always()
         # actions/upload-artifact v4.6.1
@@ -132,9 +60,6 @@ jobs:
           name: scheduled-reports-${{ github.run_number }}
           path: |
             license-report-python.md
-            license-report-js.csv
             outdated-python.txt
-            outdated-kotlin.txt
-            outdated-js.txt
           retention-days: 30
           if-no-files-found: ignore

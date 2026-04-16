@@ -54,8 +54,7 @@ Repository = "https://github.com/Naaman666/yaml-validator-mcp"
 Issues = "https://github.com/Naaman666/yaml-validator-mcp/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["."]
-only-includes = ["server.py"]
+only-include = ["server.py"]
 
 [tool.mypy]
 python_version = "3.10"

@@ -100,7 +100,12 @@ def _validate_schema(
     """
     validator = jsonschema.Draft7Validator(schema)
     errors: list[dict[str, Any]] = []
-    for error in sorted(validator.iter_errors(data), key=lambda e: list(e.path)):
+    # Sort by string-coerced path segments: paths mix str property names
+    # and int array indices, and Python 3 refuses to compare str with int.
+    for error in sorted(
+        validator.iter_errors(data),
+        key=lambda e: [str(p) for p in e.path],
+    ):
         errors.append({
             "path": list(error.path),
             "message": error.message,
@@ -189,24 +194,27 @@ def _fix_yaml(content: str) -> tuple[str, str | None]:
 
     Returns (fixed_content, fix_error).
     If fix_error is not None, fixed_content is the original content.
+    Multi-document YAML (``---`` separated) is preserved end-to-end.
     """
     yaml = YAML()
     yaml.preserve_quotes = True
     yaml.default_flow_style = False
     yaml.indent(mapping=2, sequence=4, offset=2)
     yaml.width = 4096
+    # Ensure document-start marker on every dumped document.
+    yaml.explicit_start = True
 
     try:
-        data = yaml.load(content)
+        docs = list(yaml.load_all(content))
     except YAMLError as exc:
         return content, str(exc)
 
-    # Ensure document-start marker
-    yaml.explicit_start = True
-
     buf = io.StringIO()
     try:
-        yaml.dump(data, buf)
+        if len(docs) <= 1:
+            yaml.dump(docs[0] if docs else None, buf)
+        else:
+            yaml.dump_all(docs, buf)
     except YAMLError as exc:
         return content, str(exc)
 
