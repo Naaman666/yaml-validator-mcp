@@ -100,7 +100,12 @@ def _validate_schema(
     """
     validator = jsonschema.Draft7Validator(schema)
     errors: list[dict[str, Any]] = []
-    for error in sorted(validator.iter_errors(data), key=lambda e: list(e.path)):
+    # Sort by string-coerced path segments: paths mix str property names
+    # and int array indices, and Python 3 refuses to compare str with int.
+    for error in sorted(
+        validator.iter_errors(data),
+        key=lambda e: [str(p) for p in e.path],
+    ):
         errors.append({
             "path": list(error.path),
             "message": error.message,
