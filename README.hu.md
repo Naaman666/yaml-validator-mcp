@@ -3,7 +3,7 @@
 [![CI](https://github.com/Naaman666/yaml-validator-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Naaman666/yaml-validator-mcp/actions/workflows/ci.yml)
 [![YAML Lint](https://github.com/Naaman666/yaml-validator-mcp/actions/workflows/yaml-lint.yml/badge.svg)](https://github.com/Naaman666/yaml-validator-mcp/actions/workflows/yaml-lint.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Naaman666/yaml-validator-mcp/badge)](https://scorecard.dev/viewer/?uri=github.com/Naaman666/yaml-validator-mcp)
-[![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12%20|%203.13-blue)](https://github.com/Naaman666/yaml-validator-mcp)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://github.com/Naaman666/yaml-validator-mcp)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Coverage](https://img.shields.io/badge/coverage-90%25%2B-brightgreen)](https://github.com/Naaman666/yaml-validator-mcp/actions/workflows/ci.yml)
 [![mypy](https://img.shields.io/badge/mypy-strict-2A6DB2?logo=python)](https://mypy-lang.org/)

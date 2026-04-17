@@ -43,6 +43,7 @@ dev = [
     "mypy>=1.8.0",
     "types-jsonschema>=4.20.0",
     "actionlint-py>=1.7.0",
+    "python-semantic-release>=9.0.0",
 ]
 
 [project.scripts]
@@ -66,3 +67,9 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+tag_format = "v{version}"
+major_on_zero = false
+commit_message = "chore(release): v{version} [skip ci]"
