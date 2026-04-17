@@ -1,5 +1,12 @@
 # yaml-validator-mcp
 
+[![CI](https://github.com/Naaman666/yaml-validator-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Naaman666/yaml-validator-mcp/actions/workflows/ci.yml)
+[![YAML Lint](https://github.com/Naaman666/yaml-validator-mcp/actions/workflows/yaml-lint.yml/badge.svg)](https://github.com/Naaman666/yaml-validator-mcp/actions/workflows/yaml-lint.yml)
+[![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12%20|%203.13-blue)](https://github.com/Naaman666/yaml-validator-mcp)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Coverage](https://img.shields.io/badge/coverage-90%25%2B-brightgreen)](https://github.com/Naaman666/yaml-validator-mcp/actions/workflows/ci.yml)
+[![MCP](https://img.shields.io/badge/MCP-compatible-blueviolet)](https://modelcontextprotocol.io)
+
 *[English version](README.md)*
 
 MCP szerver determinisztikus YAML validációhoz és automatikus javításhoz. Az AI modellek a YAML-t sima szövegként látják — nem tudják parse-olni és nem veszik észre a szerkezeti hibákat. Ez a szerver parser-alapú validációt és automatikus formázást biztosít, amit bármely MCP-kompatibilis kliens hívhat.
