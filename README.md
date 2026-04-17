@@ -1,5 +1,12 @@
 # yaml-validator-mcp
 
+[![CI](https://github.com/Naaman666/yaml-validator-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Naaman666/yaml-validator-mcp/actions/workflows/ci.yml)
+[![YAML Lint](https://github.com/Naaman666/yaml-validator-mcp/actions/workflows/yaml-lint.yml/badge.svg)](https://github.com/Naaman666/yaml-validator-mcp/actions/workflows/yaml-lint.yml)
+[![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12%20|%203.13-blue)](https://github.com/Naaman666/yaml-validator-mcp)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Coverage](https://img.shields.io/badge/coverage-90%25%2B-brightgreen)](https://github.com/Naaman666/yaml-validator-mcp/actions/workflows/ci.yml)
+[![MCP](https://img.shields.io/badge/MCP-compatible-blueviolet)](https://modelcontextprotocol.io)
+
 MCP server for deterministic YAML validation and auto-fixing. AI models see YAML as plain text — they can't parse or detect structural errors. This server provides parser-based validation and automatic formatting that any MCP-compatible client can call.
 
 ## Features
